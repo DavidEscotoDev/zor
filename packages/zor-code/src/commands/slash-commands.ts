@@ -10,6 +10,7 @@ import { getThemes } from '../theme/registry';
 import { exportTool } from './export';
 import { skillTool } from './skill';
 import { replaySession } from '../agent/replay';
+import { resolveModel } from '../llm/resolve';
 
 function tool(t: any): any { return t; }
 
@@ -106,6 +107,40 @@ export const slashCommands: Record<string, AgentTool> = {
       } catch (e: any) { return { content: [{ type: 'text', text: `Error: ${e.message}` }], details: { isError: true } }; }
     },
   }),
+  plan: tool({
+    name: '/plan', label: 'plan',
+    description: 'Create execution plan from goal using cheap planner model',
+    parameters: Type.Object({ goal: Type.String({ description: 'What to accomplish' }) }),
+    execute: async (_id, params, _signal, _onUpdate, ctx) => {
+      try {
+        const { goal } = params as { goal: string };
+        const plannerModel = ctx.config.orchestrator?.plannerModel || 'opencode/gpt-4o-mini';
+        const [provider, model] = plannerModel.split('/');
+        const { getModel } = await import('@earendil-works/pi-ai');
+        const modelInstance = getModel(provider as any, model as any);
+
+        const prompt = `Break this goal into a JSON array of tasks. Each task: {id, type: "code|test|review|research", description, deps: string[]}.
+Goal: ${goal}
+Return ONLY valid JSON array.`;
+
+        const result = await modelInstance.generate({ messages: [{ role: 'user', content: prompt }] });
+        const tasks = JSON.parse(result.text);
+
+        for (const t of tasks) {
+          if (!t.id || !t.type || !t.description || !Array.isArray(t.deps)) {
+            throw new Error('Invalid task format from planner');
+          }
+        }
+
+        ctx.session.plan = tasks.map((t: any) => ({ ...t, status: 'pending' }));
+        ctx.sessionManager.save(ctx.session);
+
+        return { content: [{ type: 'text', text: `Plan created (${tasks.length} tasks). Use /task to execute.` }], details: { tasks } };
+      } catch (e: any) {
+        return { content: [{ type: 'text', text: `Error: ${e.message}` }], details: { isError: true } };
+      }
+    },
+  }),
   fork: tool({
     name: '/fork', label: 'fork', description: 'Branch session to try alternative approach',
     parameters: Type.Object({}),
@@ -188,3 +223,11 @@ export const slashCommands: Record<string, AgentTool> = {
   skill: skillTool,
   replay: replaySession,
 };
+
+export function mergeExtensionCommands(extCommands: any[]): void {
+  for (const cmd of extCommands) {
+    if (cmd.name && cmd.execute) {
+      slashCommands[cmd.name] = cmd;
+    }
+  }
+}
