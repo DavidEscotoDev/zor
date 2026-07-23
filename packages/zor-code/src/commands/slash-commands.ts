@@ -141,6 +141,43 @@ Return ONLY valid JSON array.`;
       }
     },
   }),
+  task: tool({
+    name: '/task', label: 'task',
+    description: 'Execute next ready tasks from plan (parallel). Use /plan first.',
+    parameters: Type.Object({}),
+    execute: async (_id, _params, _signal, _onUpdate, ctx) => {
+      try {
+        const plan = ctx.session?.plan;
+        if (!plan || plan.length === 0) {
+          return { content: [{ type: 'text', text: 'No plan found. Create one with /plan <goal>' }], details: {} };
+        }
+
+        const pending = plan.filter((t: any) => t.status === 'pending');
+        if (pending.length === 0) {
+          return { content: [{ type: 'text', text: 'All tasks completed.' }], details: {} };
+        }
+
+        const ready = pending.filter((t: any) =>
+          t.deps.every((d: string) => plan.find((p: any) => p.id === d)?.status === 'done')
+        );
+        if (ready.length === 0) {
+          return { content: [{ type: 'text', text: 'No tasks ready (dependency wait). Run again after dependencies complete.' }], details: {} };
+        }
+
+        const { taskTool } = await import('../agent/subagent');
+        const tasks = ready.map((t: any) => ({
+          id: t.id,
+          name: t.type === 'test' ? 'reviewer' : t.type === 'review' ? 'reviewer' : 'builder',
+          task: t.description,
+        }));
+        const result = await taskTool.execute('plan-exec', { tasks }, new AbortController().signal, () => {}, ctx);
+
+        return { content: [{ type: 'text', text: `Executed ${ready.length} task(s):\n${result.content[0].text}` }], details: { ready: ready.length } };
+      } catch (e: any) {
+        return { content: [{ type: 'text', text: `Error: ${e.message}` }], details: { isError: true } };
+      }
+    },
+  }),
   fork: tool({
     name: '/fork', label: 'fork', description: 'Branch session to try alternative approach',
     parameters: Type.Object({}),
