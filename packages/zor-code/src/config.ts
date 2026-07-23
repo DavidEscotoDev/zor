@@ -77,6 +77,17 @@ export const ZorConfigSchema = Type.Object({
       maxFiles: Type.Number({ default: 5, minimum: 1, maximum: 50 }),
     })),
   })),
+  orchestrator: Type.Optional(Type.Object({
+    plannerModel: Type.Optional(Type.String({ default: 'opencode/gpt-4o-mini' })),
+    humanApproval: Type.Optional(Type.Object({
+      plan: Type.Optional(Type.Boolean({ default: false })),
+      write: Type.Optional(Type.Boolean({ default: false })),
+      bash: Type.Optional(Type.Union([
+        Type.Literal('dangerous'), Type.Literal('all'), Type.Literal(false)
+      ], { default: false })),
+      costThreshold: Type.Optional(Type.Number({ default: 0 })),
+    })),
+  })),
 });
 
 export type ZorConfig = Static<typeof ZorConfigSchema>;
@@ -120,6 +131,15 @@ export const defaultConfig: ZorConfig = {
       dir: '~/.zor/logs',
       maxSizeMB: 10,
       maxFiles: 5,
+    },
+  },
+  orchestrator: {
+    plannerModel: 'opencode/gpt-4o-mini',
+    humanApproval: {
+      plan: false,
+      write: false,
+      bash: false,
+      costThreshold: 0,
     },
   },
 };
