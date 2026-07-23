@@ -18,10 +18,12 @@ import { StatusBar } from './tui/status-bar';
 import { setConfirmationCallback, getPendingConfirmation, resolveConfirmation } from './permissions/confirm';
 import { countMessagesTokens } from './utils/tokens';
 import { ThemeProvider, useThemeStyles } from './theme';
+import { registerTheme } from './theme/registry';
 import { loadKeybindings, resolveKeybinding, Action, DEFAULT_KEYBINDINGS } from './keybindings';
 import { runRpc } from './rpc';
-import { loadExtensions, mergeContributions, ExtensionContribution } from './extensions';
+import { createExtensionHost, ExtensionContribution } from './extensions';
 import { setSandboxConfig } from './agent/sandbox';
+import { mergeExtensionCommands } from './commands/slash-commands';
 
 const MAX_INPUT_CHARS = 100_000;
 const IS_PIPED = !process.stdin.isTTY;
@@ -50,6 +52,8 @@ Usage:
   zor-code --help                Show this help
 
 Slash commands (inside TUI):
+  /plan <goal>       Create multi-task execution plan (cheap planner model)
+  /task              Execute next ready tasks from plan (parallel)
   /model, /use, /keys, /providers, /models, /ollama
   /effort, /cost, /status, /context, /init
   /fork, /tree, /compact, /rename, /resume
@@ -260,7 +264,17 @@ async function pickProviderFromKeys(config: ZorConfig): Promise<void> {
   saveLastSession(providerId, modelId);
 }
 
-function App({ initialConfig, existingSession }: { initialConfig: ZorConfig; existingSession?: SessionData }) {
+interface ExtensionRegistries {
+  tools: { register: (id: string, item: any) => void; get: (id: string) => any; getAll: () => any[] };
+  commands: { register: (id: string, item: any) => void; get: (id: string) => any; getAll: () => any[] };
+  overlays: { register: (id: string, item: any) => void; get: (id: string) => any; getAll: () => any[] };
+  themes: { register: (id: string, item: any) => void; get: (id: string) => any; getAll: () => any[] };
+  skills: { register: (id: string, item: any) => void; get: (id: string) => any; getAll: () => any[] };
+  providers: { register: (id: string, item: any) => void; get: (id: string) => any; getAll: () => any[] };
+  keybindings: { register: (action: string, keys: string | string[]) => void; get: (action: string) => string[] | undefined; getAll: () => Record<string, string[] | undefined> };
+}
+
+function App({ initialConfig, existingSession, extensionRegistries }: { initialConfig: ZorConfig; existingSession?: SessionData; extensionRegistries: ExtensionRegistries }) {
   const [config, setConfig] = useState<ZorConfig>(initialConfig);
   const theme = useThemeStyles();
   const [messages, setMessages] = useState<Array<{ role: string; content: string }>>([]);
@@ -283,6 +297,33 @@ function App({ initialConfig, existingSession }: { initialConfig: ZorConfig; exi
   const confirmResolveRef = useRef<((approved: boolean) => void) | null>(null);
   const [tokenEstimate, setTokenEstimate] = useState(0);
   const [gitBranch, setGitBranch] = useState<string | undefined>(undefined);
+
+  // Register extension themes
+  useEffect(() => {
+    if (extensionRegistries?.themes) {
+      for (const t of extensionRegistries.themes.getAll()) {
+        registerTheme(t.name, t);
+      }
+    }
+  }, [extensionRegistries]);
+
+  // Merge extension commands
+  useEffect(() => {
+    if (extensionRegistries?.commands) {
+      mergeExtensionCommands(extensionRegistries.commands.getAll());
+    }
+  }, [extensionRegistries]);
+
+  // Merge extension keybindings into config
+  const mergedKeybindings = useMemo(() => {
+    const base = config.keybindings || {};
+    const ext = extensionRegistries?.keybindings?.getAll() || {};
+    const mergedBindings: Record<string, string | string[]> = { ...base.bindings };
+    for (const [key, value] of Object.entries(ext)) {
+      if (value) mergedBindings[key] = value;
+    }
+    return { ...base, bindings: mergedBindings };
+  }, [config.keybindings, extensionRegistries]);
 
   useEffect(() => {
     if (ctx) setCtx({ ...ctx, config });
@@ -312,7 +353,7 @@ function App({ initialConfig, existingSession }: { initialConfig: ZorConfig; exi
       config.model = `${fallback.provider}/${fallback.provider === 'ollama' ? 'llama3' : 'claude-sonnet-4'}`;
     }
     try {
-      const { agent, resolved, sessionManager, session, mcpErrors } = await createZorAgent(config, existingSession);
+      const { agent, resolved, sessionManager, session, mcpErrors } = await createZorAgent(config, existingSession, extensionRegistries?.tools?.getAll() || []);
       setAgentRef(agent);
       setModel(resolved.provider.id + '/' + resolved.model.id);
       setCtx({ agent, config, sessionManager, session });
@@ -765,7 +806,7 @@ lines.push('  /speckit.converge Audit code vs spec');
       key: key.name || key.key || inputValue,
     };
 
-    const kbConfig = loadKeybindings(config.keybindings || {});
+    const kbConfig = loadKeybindings(mergedKeybindings);
 
     // Check for interrupt (highest priority when processing)
     if (resolveKeybinding(keyInfo, kbConfig) === 'interrupt' && processingRef.current) {
@@ -899,7 +940,7 @@ lines.push('  /speckit.converge Audit code vs spec');
     if (resolveKeybinding(keyInfo, kbConfig) === 'complete') {
       const current = inputRef.current;
       if (current.startsWith('/')) {
-        const allCommands = ['/clear', '/more', '/exit', '/help', '/use', '/model', '/keys', '/providers', '/models', '/ollama', '/fork', '/tree', '/cost', '/compact', '/status', '/effort', '/rename', '/context', '/init', '/resume', '/export', '/skill', '/replay', '/speckit.constitution', '/speckit.specify', '/speckit.clarify', '/speckit.plan', '/speckit.tasks', '/speckit.implement', '/speckit.converge'];
+        const allCommands = ['/plan', '/task', '/clear', '/more', '/exit', '/help', '/use', '/model', '/keys', '/providers', '/models', '/ollama', '/fork', '/tree', '/cost', '/compact', '/status', '/effort', '/rename', '/context', '/init', '/resume', '/export', '/skill', '/replay', '/speckit.constitution', '/speckit.specify', '/speckit.clarify', '/speckit.plan', '/speckit.tasks', '/speckit.implement', '/speckit.converge'];
         const matches = allCommands.filter(c => c.startsWith(current.toLowerCase()));
         if (matches.length === 1) {
           inputRef.current = matches[0];
@@ -1026,7 +1067,7 @@ if (inputValue && inputValue !== '\x7f' && inputValue !== '\b') {
       </Box>
       {input.startsWith('/') && input.length <= 15 && !input.includes(' ') && (
         <Box flexDirection="column" marginBottom={1} paddingLeft={3}>
-          {['/clear', '/more', '/exit', '/help', '/use', '/model', '/keys', '/providers', '/models', '/ollama', '/fork', '/tree', '/cost', '/compact', '/status', '/effort', '/rename', '/context', '/init', '/resume', '/speckit.constitution', '/speckit.specify', '/speckit.clarify', '/speckit.plan', '/speckit.tasks', '/speckit.implement', '/speckit.converge']
+          {['/plan', '/task', '/clear', '/more', '/exit', '/help', '/use', '/model', '/keys', '/providers', '/models', '/ollama', '/fork', '/tree', '/cost', '/compact', '/status', '/effort', '/rename', '/context', '/init', '/resume', '/speckit.constitution', '/speckit.specify', '/speckit.clarify', '/speckit.plan', '/speckit.tasks', '/speckit.implement', '/speckit.converge']
             .filter(c => c.startsWith(input.toLowerCase()))
             .slice(0, 10)
             .map((cmd, i) => (
@@ -1152,24 +1193,20 @@ async function bootstrapInteractive() {
   // Initialize sandbox
   setSandboxConfig(config.sandbox);
 
-  // Load extensions
+  // Load extensions via ExtensionHost (registers all contributions into registries)
   const builtInContributions: ExtensionContribution = {
-    tools: [],
-    commands: [],
-    overlays: [],
-    themes: [],
-    skills: [],
-    providers: [],
-    keybindings: [],
+    tools: [], commands: [], overlays: [], themes: [],
+    skills: [], providers: [], keybindings: [],
   };
-  
-  const extensions = loadExtensions(config.keybindings?.path || '~/.zor/extensions');
-  const mergedContributions = mergeContributions(builtInContributions, extensions);
-  // TODO: register merged contributions into registries
+  const extensionHost = await createExtensionHost(
+    builtInContributions,
+    config.keybindings?.path || '~/.zor/extensions'
+  );
+  const extensionRegistries = extensionHost.getRegistries();
 
   render(
     <ThemeProvider config={config}>
-      <App initialConfig={config} existingSession={existingSession} />
+      <App initialConfig={config} existingSession={existingSession} extensionRegistries={extensionRegistries} />
     </ThemeProvider>
   );
   if (process.stdin.isTTY) {
