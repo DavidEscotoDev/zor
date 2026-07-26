@@ -11,13 +11,13 @@ export const ZorConfigSchema = Type.Object({
     Type.Literal('medium'),
     Type.Literal('high'),
     Type.Literal('xhigh'),
-  ], { default: 'high' }),
+  ], { default: 'off' }),
   permissions: Type.Union([
     Type.Literal('auto'),
     Type.Literal('confirm'),
     Type.Literal('plan'),
     Type.Literal('deny'),
-  ], { default: 'confirm' }),
+  ], { default: 'auto' }),
   sandbox: Type.Optional(Type.Object({
     enabled: Type.Boolean({ default: false }),
     allowPaths: Type.Optional(Type.Array(Type.String(), { default: [] })),
@@ -33,7 +33,7 @@ export const ZorConfigSchema = Type.Object({
   ], { default: 'auto' }),
   session: Type.Object({
     dir: Type.String({ default: './.zor/sessions' }),
-    compactThreshold: Type.Number({ default: 160000 }),
+    compactThreshold: Type.Number({ default: 50000 }),
   }),
   mcp: Type.Object({
     servers: Type.Array(Type.String(), { default: [] }),
@@ -60,10 +60,6 @@ export const ZorConfigSchema = Type.Object({
     bindings: Type.Optional(Type.Record(Type.String(), Type.Union([Type.String(), Type.Array(Type.String())]))),
     path: Type.Optional(Type.String({ default: '~/.zor/keys.json' })),
   })),
-  extensions: Type.Optional(Type.Object({
-    dir: Type.Optional(Type.String({ default: '~/.zor/extensions' })),
-    enabled: Type.Optional(Type.Boolean({ default: true })),
-  })),
   logging: Type.Optional(Type.Object({
     level: Type.Union([
       Type.Literal('debug'), Type.Literal('info'), Type.Literal('warn'), Type.Literal('error'), Type.Literal('fatal')
@@ -79,14 +75,6 @@ export const ZorConfigSchema = Type.Object({
   })),
   orchestrator: Type.Optional(Type.Object({
     plannerModel: Type.Optional(Type.String({ default: 'opencode/gpt-4o-mini' })),
-    humanApproval: Type.Optional(Type.Object({
-      plan: Type.Optional(Type.Boolean({ default: false })),
-      write: Type.Optional(Type.Boolean({ default: false })),
-      bash: Type.Optional(Type.Union([
-        Type.Literal('dangerous'), Type.Literal('all'), Type.Literal(false)
-      ], { default: false })),
-      costThreshold: Type.Optional(Type.Number({ default: 0 })),
-    })),
   })),
 });
 
@@ -94,8 +82,8 @@ export type ZorConfig = Static<typeof ZorConfigSchema>;
 
 export const defaultConfig: ZorConfig = {
   model: 'opencode/claude-sonnet-4',
-  effort: 'high',
-  permissions: 'confirm',
+  effort: 'off',
+  permissions: 'auto',
   sandbox: {
     enabled: false,
     allowPaths: [],
@@ -106,7 +94,7 @@ export const defaultConfig: ZorConfig = {
   theme: 'auto',
   session: {
     dir: './.zor/sessions',
-    compactThreshold: 160000,
+    compactThreshold: 50000,
   },
   mcp: { servers: [] },
   skills: { dir: '~/.zor/skills' },
@@ -120,10 +108,6 @@ export const defaultConfig: ZorConfig = {
     bindings: {},
     path: '~/.zor/keys.json',
   },
-  extensions: {
-    dir: '~/.zor/extensions',
-    enabled: true,
-  },
   logging: {
     level: 'info',
     sinks: ['stdout'],
@@ -135,12 +119,6 @@ export const defaultConfig: ZorConfig = {
   },
   orchestrator: {
     plannerModel: 'opencode/gpt-4o-mini',
-    humanApproval: {
-      plan: false,
-      write: false,
-      bash: false,
-      costThreshold: 0,
-    },
   },
 };
 

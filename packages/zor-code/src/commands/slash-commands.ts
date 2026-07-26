@@ -9,8 +9,6 @@ import { countMessagesTokens } from '../utils/tokens';
 import { getThemes } from '../theme/registry';
 import { exportTool } from './export';
 import { skillTool } from './skill';
-import { replaySession } from '../agent/replay';
-import { resolveModel } from '../llm/resolve';
 
 function tool(t: any): any { return t; }
 
@@ -123,7 +121,7 @@ export const slashCommands: Record<string, AgentTool> = {
 Goal: ${goal}
 Return ONLY valid JSON array.`;
 
-        const result = await modelInstance.generate({ messages: [{ role: 'user', content: prompt }] });
+        const result = await (modelInstance as any).generate({ messages: [{ role: 'user', content: prompt }] });
         const tasks = JSON.parse(result.text);
 
         for (const t of tasks) {
@@ -170,7 +168,7 @@ Return ONLY valid JSON array.`;
           name: t.type === 'test' ? 'reviewer' : t.type === 'review' ? 'reviewer' : 'builder',
           task: t.description,
         }));
-        const result = await taskTool.execute('plan-exec', { tasks }, new AbortController().signal, () => {}, ctx);
+        const result = await (taskTool as any).execute('plan-exec', { tasks }, new AbortController().signal, () => {}, ctx);
 
         return { content: [{ type: 'text', text: `Executed ${ready.length} task(s):\n${result.content[0].text}` }], details: { ready: ready.length } };
       } catch (e: any) {
@@ -258,13 +256,4 @@ Return ONLY valid JSON array.`;
   }),
   export: exportTool,
   skill: skillTool,
-  replay: replaySession,
 };
-
-export function mergeExtensionCommands(extCommands: any[]): void {
-  for (const cmd of extCommands) {
-    if (cmd.name && cmd.execute) {
-      slashCommands[cmd.name] = cmd;
-    }
-  }
-}

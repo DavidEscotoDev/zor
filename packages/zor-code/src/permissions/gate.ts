@@ -10,7 +10,7 @@ const DANGEROUS_PATTERNS = [
   /curl.*\|.*sh/,
   /sudo/,
 ];
-const PROTECTED_PATTERNS = ['.env', 'credentials', 'secrets', '*.pem', 'id_rsa', /.ssh\//, /\.git\/config/];
+const PROTECTED_PATTERNS = ['.env', 'credentials', 'secrets', /\.pem$/, 'id_rsa', /.ssh\//, /\.git\/config/];
 
 export interface GateResult {
   block?: boolean;

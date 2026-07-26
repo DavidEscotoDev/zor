@@ -33,19 +33,63 @@ export const coreTools: AgentTool[] = [
   {
     name: 'Bash',
     label: 'bash',
-    description: 'Execute shell commands in the project directory.',
+    description: 'Execute shell commands. NEVER use for file creation (>, >>, <<, cat >, echo >, tee). Use Write tool instead.',
     parameters: Type.Object({ command: Type.String({ description: 'Shell command to execute' }) }),
     execute: async (_id, params, _signal, onUpdate) => {
       try {
         const { command } = params as Record<string, any>;
+        
+        // Guard: block shell redirection for file creation on Windows
+        if (process.platform === 'win32') {
+          const fileCreationPatterns = [
+            />\s*['"]?[\w\\/.-]+['"]?\s*$/,          // echo "..." > file
+            />\s*['"]?[\w\\/.-]+['"]?\s*;/,         // echo "..." > file;
+            />>\s*['"]?[\w\\/.-]+['"]?\s*$/,        // echo "..." >> file
+            /<<\s*['"]?[\w]+['"]?/,                 // cat << 'EOF'
+            /cat\s+>\s*[\w\\/.-]+/,                 // cat > file
+            /tee\s+[\w\\/.-]+/,                     // tee file
+          ];
+          if (fileCreationPatterns.some(p => p.test(command))) {
+            return result(
+              'File creation via shell redirection (>, >>, <<, cat >, tee) fails on Windows. ' +
+              'Use Write tool instead. Example: Write({ filepath: "file.html", content: "<html>..." })',
+              { isError: true }
+            );
+          }
+        }
+        
+        // Guard: prevent file creation via shell redirection on Windows
+        if (process.platform === 'win32') {
+          const fileCreationPatterns = [
+            />\s*\S+/,           // command > file
+            />>\s*\S+/,          // command >> file
+            /<<\s*['"]?\w+['"]?/, // heredoc << 'EOF'
+            /\bcat\s+>\s+\S+/,   // cat > file
+            /\becho\s+.*>\s+\S+/, // echo ... > file
+            /\btee\s+>\s+\S+/,   // tee > file
+            /\bcp\s+\S+\s+>\s+\S+/, // cp ... > file
+          ];
+          if (fileCreationPatterns.some(p => p.test(command))) {
+            return result(
+              `❌ File creation via shell redirection fails on Windows. Use Write tool instead.\n` +
+              `Command blocked: ${command.slice(0, 100)}`,
+              { isError: true }
+            );
+          }
+        }
+        
         if (onUpdate) {
           return new Promise((resolve) => {
             let stdout = '';
             let stderr = '';
-            const [bin, ...args] = process.platform === 'win32'
-              ? ['cmd', '/d', '/s', '/c', command]
-              : ['sh', '-c', command];
-            const proc = spawn(bin, args, { timeout: 30000 });
+            let proc;
+            
+            if (process.platform === 'win32') {
+              proc = spawn('cmd', ['/d', '/s', '/c', command], { timeout: 60000 });
+            } else {
+              proc = spawn('sh', ['-c', command], { timeout: 60000 });
+            }
+            
             proc.stdout.on('data', (data: Buffer) => {
               const chunk = data.toString();
               stdout += chunk;
@@ -65,8 +109,14 @@ export const coreTools: AgentTool[] = [
             });
           });
         }
-        const stdout = execSync(command, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 30000 });
-        return result(stdout || 'Command completed');
+        // Non-streaming fallback
+        let output: string;
+        if (process.platform === 'win32') {
+          output = execSync(command, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 60000, shell: 'cmd.exe' });
+        } else {
+          output = execSync(command, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 60000 });
+        }
+        return result(output || 'Command completed');
       } catch (e: any) {
         return result(e.stdout?.toString() || e.stderr?.toString() || `exit code ${e.status ?? 1}`, { isError: true });
       }

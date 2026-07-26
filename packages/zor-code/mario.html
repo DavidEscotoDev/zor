@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Super Mario Bros - World 1-1</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #5c94fc;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+        }
+        #game-container {
+            position: relative;
+            width: 800px;
+            height: 448px;
+            margin: 20px auto;
+            background: #000;
+            border: 4px solid #fff;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+        }
+        canvas { display: block; }
+        #ui {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: #fff;
+            font-size: 14px;
+            line-height: 1.8;
+            z-index: 10;
+            text-shadow: 1px 1px 0 #000;
+        }
+        #ui div { margin-bottom: 2px; }
+        #start-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: #000;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        #start-screen h1 { font-size: 32px; margin-bottom: 10px; }
+        #start-screen p { font-size: 16px; margin: 5px 0; }
+        #start-screen .controls { margin-top: 20px; font-size: 14px; text-align: left; max-width: 400px; }
+        #start-screen .controls div { margin: 5px 0; }
+        #game-over {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        #game-over h1 { font-size: 48px; color: #ff0000; margin-bottom: 20px; }
+        #game-over p { font-size: 24px; margin: 10px 0; }
+        #win-screen {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            color: #fff;
+            display: none;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 20;
+        }
+        #win-screen h1 { font-size: 48px; color: #ffd700; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="canvas" width="800" height="448"></canvas>
+        <div id="ui">
+            <div>MARIO <span id="score">000000</span></div>
+            <div>WORLD 1-1</div>
+            <div>TIME <span id="timer">400</span></div>
+            <div>LIVES <span id="lives">3</span></div>
+        </div>
+        <div id="start-screen">
+            <h1>SUPER MARIO BROS</h1>
+            <p>WORLD 1-1</p>
+            <p>PRESS ENTER TO START</p>
+            <div class="controls">
+                <div>ARROW LEFT/RIGHT - MOVE</div>
+                <div>ARROW UP / Z / SPACE - JUMP</div>
+                <div>HOLD X / SHIFT - RUN</div>
+                <div>P - PAUSE</div>
+            </div>
+        </div>
+        <div id="game-over">
+            <h1>GAME OVER</h1>
+            <p>SCORE: <span id="final-score">0</span></p>
+            <p>PRESS ENTER TO RESTART</p>
+        </div>
+        <div id="win-screen">
+            <h1>LEVEL CLEAR!</h1>
+            <p>SCORE: <span id="win-score">0</span></p>
+            <p>TIME BONUS: <span id="time-bonus">0</span></p>
+            <p>PRESS ENTER FOR NEXT LEVEL</p>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const WIDTH = 800;
+        const HEIGHT = 448;
+        const TILE_SIZE = 16;
+        const SCALE = 2;
+        const GRAVITY = 0.6;
+        const JUMP_FORCE = -14;
+        const MOVE_SPEED = 2.5;
+        const RUN_SPEED = 4;
+        const MAX_FALL_SPEED = 12;
+
+        let cameraX = 0;
+        let gameState = 'start';
+        let score = 0;
+        let lives = 3;
+        let timer = 400;
+        let timerInterval = null;
+        let frameCount = 0;
+        let levelWidth = 0;
+
+        const keys = {};
+        document.addEventListener('keydown', e => { keys[e.code] = true; if (e.code === 'Space') e.preventDefault(); });
+        document.addEventListener('keyup', e => { keys[e.code] = false; });
+
+        const mario = {
+            x: 50, y: 300, w: 16, h: 16,
+            vx: 0, vy: 0,
+            onGround: false,
+            big: false,
+            facingRight: true,
+            animFrame: 0,
+            animTimer: 0,
+            state: 'idle',
+            invincible: 0,
+            dead: false,
+            win: false
+        };
+
+        const entities = [];
+        const particles = [];
+
+        const levelData = [
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "................................BBBBBBB..............................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "..................................................................................?..............................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "..........................BBB..............................................................................................................................................................................................................................",
+            "..................................................................................?..............................................................................................................................................................................................",
+            "..........BBB..............................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            ".......?..................................................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "....BBB....................BBBBBB..........................................................................................................................................................................................................",
+            "........................................................................................................................................................................................................................................................................................................",
+            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB",
+            "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        ];
+
+        const TILE_TYPES = {
+            '.': 0, 'B': 1, '?': 2, 'b': 3, 'P': 4, 'G': 5, 'p': 6
+        };
+
+        const tiles = [];
+        levelData.forEach((row, y) => {
+            [...row].forEach((char, x) => {
+                const type = TILE_TYPES[char] || 0;
+                if (type > 0) {
+                    tiles.push({ x: x * TILE_SIZE, y: y * TILE_SIZE, type, hit: false, content: type === 2 ? 'coin' : 'mushroom' });
+                }
+            });
+        });
+        levelWidth = levelData[0].length * TILE_SIZE;
+
+        class Goomba {
+            constructor(x, y) {
+                this.x = x; this.y = y; this.w = 16; this.h = 16;
+                this.vx = -1; this.vy = 0; this.dead = false; this.squished = false;
+                this.animFrame = 0; this.animTimer = 0; this.deathTimer = 0;
+            }
+            update() {
+                if (this.dead) {
+                    this.deathTimer++;
+                    if (this.deathTimer > 30) this.remove = true;
+                    return;
+                }
+                if (this.squished) return;
+                this.vy += GRAVITY;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.animTimer++;
+                if (this.animTimer > 15) { this.animFrame = 1 - this.animFrame; this.animTimer = 0; }
+                checkEntityCollisions(this);
+            }
+            draw() {
+                if (this.dead && !this.squished) return;
+                ctx.save();
+                ctx.translate(this.x - cameraX, this.y);
+                ctx.scale(SCALE, SCALE);
+                if (this.squished) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(-2, 12, 20, 4);
+                } else {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(2, 8, 12, 8);
+                    ctx.fillRect(0, 10, 16, 6);
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(this.vx < 0 ? 2 : 10, 10, 4, 4);
+                    ctx.fillStyle = '#FFF';
+                    ctx.fillRect(this.vx < 0 ? 3 : 11, 11, 2, 2);
+                }
+                ctx.restore();
+            }
+        }
+
+        class Koopa {
+            constructor(x, y) {
+                this.x = x; this.y = y; this.w = 16; this.h = 24;
+                this.vx = -1; this.vy = 0; this.dead = false; this.shell = false;
+                this.animFrame = 0; this.animTimer = 0;
+            }
+            update() {
+                if (this.dead) return;
+                this.vy += GRAVITY;
+                this.x += this.vx;
+                this.y += this.vy;
+                this.animTimer++;
+                if (this.animTimer > 12) { this.animFrame = 1 - this.animFrame; this.animTimer = 0; }
+                checkEntityCollisions(this);
+            }
+            draw() {
+                ctx.save();
+                ctx.translate(this.x - cameraX, this.y);
+                ctx.scale(SCALE, SCALE);
+                ctx.fillStyle = '#228B22';
+                if (this.shell) {
+                    ctx.fillRect(2, 4, 12, 16);
+                    ctx.fillStyle = '#FFF';
+                    ctx.fillRect(4, 6, 8, 4);
+                } else {
+                    ctx.fillRect(2, 8, 12, 16);
+                    ctx.fillRect(0, 10, 16, 14);
+                    ctx.fillStyle = '#FFF';
+                    ctx.fillRect(this.vx < 0 ? 2 : 10, 10, 4, 4);
+                    ctx.fillStyle = '#000';
+                    ctx.fillRect(this.vx < 0 ? 3 : 11, 11, 2, 2);
+                }
+                ctx.restore();
+            }
+        }
+
+        entities.push(new Goomba(300, 384));
+        entities.push(new Goomba(330, 384));
+        entities.push(new Goomba(800, 384));
+        entities.push(new Koopa(1200, 376));
+        entities.push(new Goomba(1500, 384));
+        entities.push(new Goomba(2000, 384));
+        entities.push(new Koopa(2500, 376));
+
+        function checkEntityCollisions(entity) {
+            tiles.forEach(tile => {
+                if (tile.type === 1 || tile.type === 3) {
+                    if (entity.x < tile.x + TILE_SIZE && entity.x + entity.w > tile.x &&
+                        entity.y < tile.y + TILE_SIZE && entity.y + entity.h > tile.y) {
+                        if (entity.vy > 0 && entity.y + entity.h - entity.vy <= tile.y) {
+                            entity.y = tile.y - entity.h;
+                            entity.vy = 0;
+                            entity.onGround = true;
+                        }
+                        if (entity.vx > 0 && entity.x + entity.w - entity.vx <= tile.x) {
+                            entity.x = tile.x - entity.w;
+                            entity.vx *= -1;
+                        }
+                        if (entity.vx < 0 && entity.x - entity.vx >= tile.x + TILE_SIZE) {
+                            entity.x = tile.x + TILE_SIZE;
+                            entity.vx *= -1;
+                        }
+                    }
+                }
+            });
+        }
+
+        function getTile(x, y) {
+            const tx = Math.floor(x / TILE_SIZE);
+            const ty = Math.floor(y / TILE_SIZE);
+            if (ty < 0 || ty >= levelData.length || tx < 0) return 0;
+            const row = levelData[ty];
+            if (tx >= row.length) return 0;
+            return TILE_TYPES[row[tx]] || 0;
+        }
+
+        function checkCollision(x, y, w, h) {
+            const left = Math.floor(x / TILE_SIZE);
+            const right = Math.floor((x + w - 1) / TILE_SIZE);
+            const top = Math.floor(y / TILE_SIZE);
+            const bottom = Math.floor((y + h - 1) / TILE_SIZE);
+            for (let ty = top; ty <= bottom; ty++) {
+                for (let tx = left; tx <= right; tx++) {
+                    const type = getTile(tx * TILE_SIZE, ty * TILE_SIZE);
+                    if (type === 1 || type === 3) return { x: tx * TILE_SIZE, y: ty * TILE_SIZE, type };
+                }
+            }
+            return null;
+        }
+
+        function hitBlock(tx, ty, fromBelow) {
+            const idx = tiles.findIndex(t => t.x === tx * TILE_SIZE && t.y === ty * TILE_SIZE);
+            if (idx === -1) return;
+            const tile = tiles[idx];
+            if (tile.type === 2 && !tile.hit) {
+                tile.hit = true;
+                if (tile.content === 'coin') {
+                    score += 200;
+                    particles.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, type: 'coin', vy: -4, life: 30 });
+                } else if (tile.content === 'mushroom') {
+                    spawnMushroom(tx * TILE_SIZE, ty * TILE_SIZE);
+                }
+            } else if (tile.type === 1 && mario.big && fromBelow) {
+                particles.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, type: 'brick', vx: -2, vy: -6, life: 30 });
+                particles.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, type: 'brick', vx: 2, vy: -6, life: 30 });
+                particles.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, type: 'brick', vx: -1, vy: -3, life: 30 });
+                particles.push({ x: tx * TILE_SIZE, y: ty * TILE_SIZE, type: 'brick', vx: 1, vy: -3, life: 30 });
+                tiles.splice(idx, 1);
+                score += 50;
+            }
+        }
+
+        function spawnMushroom(x, y) {
+            entities.push({
+                x, y: y - 16, w: 16, h: 16, type: 'mushroom',
+                vx: 2, vy: 0, collected: false,
+                update() {
+                    if (this.collected) return;
+                    this.vy += GRAVITY;
+                    this.x += this.vx;
+                    this.y += this.vy;
+                    checkEntityCollisions(this);
+                    if (this.x < mario.x + mario.w && this.x + this.w > mario.x &&
+                        this.y < mario.y + mario.h && this.y + this.h > mario.y) {
+                        this.collected = true;
+                        makeBig();
+                        score += 1000;
+                    }
+                },
+                draw() {
+                    if (this.collected) return;
+                    ctx.save();
+                    ctx.translate(this.x - cameraX, this.y);
+                    ctx.scale(SCALE, SCALE);
+                    ctx.fillStyle = '#FF0000';
+                    ctx.fillRect(0, 0, 16, 16);
+                    ctx.fillStyle = '#FFF';
+                    ctx.fillRect(2, 2, 4, 4);
+                    ctx.fillRect(10, 2, 4, 4);
+                    ctx.fillRect(2, 10, 4, 4);
+                    ctx.fillRect(10, 10, 4, 4);
+                    ctx.fillRect(6, 6, 4, 4);
+                    ctx.restore();
+                }
+            });
+        }
+
+        function makeBig() {
+            if (!mario.big) {
+                mario.big = true;
+                mario.h = 32;
+                mario.y -= 16;
+            }
+        }
+
+        function takeDamage() {
+            if (mario.invincible > 0 || mario.dead) return;
+            if (mario.big) {
+                mario.big = false;
+                mario.h = 16;
+                mario.invincible = 120;
+            } else {
+                die();
+            }
+        }
+
+        function die() {
+            mario.dead = true;
+            mario.vy = -10;
+            lives--;
+            stopTimer();
+        }
+
+        function startTimer() {
+            timer = 400;
+            timerInterval = setInterval(() => {
+                if (gameState === 'play') {
+                    timer--;
+                    if (timer <= 0) die();
+                }
+            }, 1000);
+        }
+
+        function stopTimer() {
+            if (timerInterval) clearInterval(timerInterval);
+        }
+
+        function resetLevel() {
+            mario.x = 50; mario.y = 300; mario.vx = 0; mario.vy = 0;
+            mario.big = false; mario.h = 16; mario.dead = false; mario.win = false;
+            mario.invincible = 0; mario.facingRight = true;
+            cameraX = 0;
+            entities.length = 0;
+            particles.length = 0;
+            tiles.forEach(t => t.hit = false);
+            entities.push(new Goomba(300, 384));
+            entities.push(new Goomba(330, 384));
+            entities.push(new Goomba(800, 384));
+            entities.push(new Koopa(1200, 376));
+            entities.push(new Goomba(1500, 384));
+            entities.push(new Goomba(2000, 384));
+            entities.push(new Koopa(2500, 376));
+            startTimer();
+        }
+
+        function updateMario() {
+            if (mario.dead) {
+                mario.vy += GRAVITY;
+                mario.y += mario.vy;
+                if (mario.y > HEIGHT + 100) {
+                    if (lives <= 0) { gameState = 'gameover'; }
+                    else { resetLevel(); }
+                }
+                return;
+            }
+            if (mario.win) return;
+
+            if (mario.invincible > 0) mario.invincible--;
+
+            const running = keys['ShiftLeft'] || keys['ShiftRight'] || keys['KeyX'];
+            const speed = running ? RUN_SPEED : MOVE_SPEED;
+
+            if (keys['ArrowLeft'] || keys['KeyA']) {
+                mario.vx = -speed;
+                mario.facingRight = false;
+                mario.state = 'run';
+            } else if (keys['ArrowRight'] || keys['KeyD']) {
+                mario.vx = speed;
+                mario.facingRight = true;
+                mario.state = 'run';
+            } else {
+                mario.vx *= 0.8;
+                if (Math.abs(mario.vx) < 0.1) { mario.vx = 0; mario.state = 'idle'; }
+            }
+
+            if ((keys['ArrowUp'] || keys['KeyZ'] || keys['Space']) && mario.onGround) {
+                mario.vy = JUMP_FORCE;
+                mario.onGround = false;
+                mario.state = 'jump';
+            }
+
+            mario.vy += GRAVITY;
+            if (mario.vy > MAX_FALL_SPEED) mario.vy = MAX_FALL_SPEED;
+
+            mario.x += mario.vx;
+            mario.y += mario.vy;
+
+            const hit = checkCollision(mario.x, mario.y, mario.w, mario.h);
+            if (hit) {
+                if (mario.vy > 0 && mario.y + mario.h - mario.vy <= hit.y) {
+                    mario.y = hit.y - mario.h;
+                    mario.vy = 0;
+                    mario.onGround = true;
+                } else if (mario.vy < 0 && mario.y - mario.vy >= hit.y + TILE_SIZE) {
+                    mario.y = hit.y + TILE_SIZE;
+                    mario.vy = 0;
+                    hitBlock(hit.x / TILE_SIZE, hit.y / TILE_SIZE, true);
+                }
+                if (mario.vx > 0 && mario.x + mario.w - mario.vx <= hit.x) {
+                    mario.x = hit.x - mario.w;
+                    mario.vx = 0;
+                }
+                if (mario.vx < 0 && mario.x - mario.vx >= hit.x + TILE_SIZE) {
+                    mario.x = hit.x + TILE_SIZE;
+                    mario.vx = 0;
+                }
+            } else {
+                mario.onGround = false;
+            }
+
+            if (mario.x < 0) mario.x = 0;
+            if (mario.y > HEIGHT + 100) die();
+
+            if (mario.x > cameraX + WIDTH * 0.6) cameraX = mario.x - WIDTH * 0.6;
+            if (cameraX < 0) cameraX = 0;
+            if (cameraX > levelWidth - WIDTH) cameraX = levelWidth - WIDTH;
+
+            if (mario.x > levelWidth - 50) {
+                mario.win = true;
+                gameState = 'win';
+                stopTimer();
+            }
+
+            if (mario.vx !== 0 && mario.onGround) {
+                mario.animTimer++;
+                if (mario.animTimer > (running ? 4 : 8)) {
+                    mario.animFrame = (mario.animFrame + 1) % 3;
+                    mario.animTimer = 0;
+                }
+            } else {
+                mario.animFrame = 0;
+            }
+        }
+
+        function updateEntities() {
+            for (let i = entities.length - 1; i >= 0; i--) {
+                const e = entities[i];
+                e.update();
+                if (e.remove) { entities.splice(i, 1); continue; }
+
+                if (!mario.dead && !mario.win && !e.dead && !e.collected) {
+                    if (mario.x < e.x + e.w && mario.x + mario.w > e.x &&
+                        mario.y < e.y + e.h && mario.y + mario.h > e.y) {
+                        if (e.type === 'mushroom') continue;
+                        if (mario.vy > 0 && mario.y + mario.h - mario.vy <= e.y + 8) {
+                            mario.vy = -8;
+                            if (e instanceof Goomba) {
+                                e.squished = true;
+                                e.dead = true;
+                                score += 100;
+                                particles.push({ x: e.x, y: e.y, type: 'score', text: '100', life: 60 });
+                            } else if (e instanceof Koopa) {
+                                e.shell = true;
+                                e.vx = 0;
+                                score += 100;
+                                particles.push({ x: e.x, y: e.y, type: 'score', text: '100', life: 60 });
+                            }
+                        } else {
+                            takeDamage();
+                        }
+                    }
+                }
+
+                if (e instanceof Koopa && e.shell && e.vx !== 0) {
+                    for (let j = entities.length - 1; j >= 0; j--) {
+                        const other = entities[j];
+                        if (other !== e && !other.dead && !(other instanceof Koopa && other.shell)) {
+                            if (e.x < other.x + other.w && e.x + e.w > other.x &&
+                                e.y < other.y + other.h && e.y + e.h > other.y) {
+                                other.dead = true;
+                                other.squished = true;
+                                score += 100;
+                                particles.push({ x: other.x, y: other.y, type: 'score', text: '100', life: 60 });
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        function updateParticles() {
+            for (let i = particles.length - 1; i >= 0; i--) {
+                const p = particles[i];
+                p.life--;
+                if (p.life <= 0) { particles.splice(i, 1); continue; }
+                if (p.vx !== undefined) p.x += p.vx;
+                if (p.vy !== undefined) { p.y += p.vy; p.vy += 0.3; }
+                if (p.vy !== undefined && p.type === 'coin') { p.vy += 0.2; }
+            }
+        }
+
+        function drawBackground() {
+            ctx.fillStyle = '#5C94FC';
+            ctx.fillRect(0, 0, WIDTH, HEIGHT);
+
+            ctx.fillStyle = '#FFF';
+            for (let i = 0; i < 5; i++) {
+                const x = (i * 200 - cameraX * 0.3) % (WIDTH + 100) - 50;
+                const y = 50 + i * 30;
+                ctx.beginPath();
+                ctx.arc(x, y, 12, 0, Math.PI * 2);
+                ctx.arc(x + 20, y - 5, 8, 0, Math.PI * 2);
+                ctx.arc(x + 40, y, 12, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = '#0F8';
+            for (let i = 0; i < 10; i++) {
+                const x = (i * 100 - cameraX * 0.6) % (WIDTH + 50) - 25;
+                const y = HEIGHT - 80;
+                ctx.fillRect(x, y, 30, 40);
+                ctx.fillRect(x + 5, y - 15, 20, 20);
+            }
+
+            ctx.fillStyle = '#8B4513';
+            for (let i = 0; i < 8; i++) {
+                const x = (i * 150 - cameraX * 0.8) % (WIDTH + 50) - 25;
+                const y = HEIGHT - 48;
+                ctx.fillRect(x, y, 20, 20);
+                ctx.fillRect(x - 5, y - 10, 30, 15);
+            }
+        }
+
+        function drawTiles() {
+            tiles.forEach(tile => {
+                const sx = tile.x - cameraX;
+                if (sx < -TILE_SIZE || sx > WIDTH) return;
+                ctx.save();
+                ctx.translate(sx, tile.y);
+                ctx.scale(SCALE, SCALE);
+                if (tile.type === 1) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(0, 0, 16, 16);
+                    ctx.fillStyle = '#A0522D';
+                    ctx.fillRect(0, 0, 16, 4);
+                    ctx.fillRect(0, 12, 16, 4);
+                    ctx.fillRect(0, 0, 4, 16);
+                    ctx.fillRect(12, 0, 4, 16);
+                    ctx.fillStyle = '#6B3513';
+                    for (let i = 0; i < 16; i += 4) {
+                        ctx.fillRect(i % 8 === 0 ? 0 : 8, i, 8, 4);
+                    }
+                } else if (tile.type === 2) {
+                    ctx.fillStyle = tile.hit ? '#8B4513' : '#F4D03E';
+                    ctx.fillRect(2, 2, 12, 12);
+                    if (!tile.hit) {
+                        ctx.fillStyle = '#FFD700';
+                        ctx.fillRect(4, 4, 8, 8);
+                        ctx.fillStyle = '#F4D03E';
+                        ctx.fillRect(5, 5, 6, 6);
+                    } else {
+                        ctx.fillStyle = '#A0522D';
+                        ctx.fillRect(2, 2, 12, 4);
+                        ctx.fillRect(2, 10, 12, 4);
+                        ctx.fillRect(2, 2, 4, 12);
+                        ctx.fillRect(10, 2, 4, 12);
+                    }
+                } else if (tile.type === 3) {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(0, 0, 16, 16);
+                }
+                ctx.restore();
+            });
+        }
+
+        function drawMario() {
+            if (mario.invincible > 0 && Math.floor(mario.invincible / 4) % 2 === 0) return;
+            ctx.save();
+            ctx.translate(mario.x - cameraX, mario.y);
+            ctx.scale(SCALE, SCALE);
+            if (!mario.facingRight) { ctx.scale(-1, 1); ctx.translate(-mario.w, 0); }
+
+            const h = mario.h;
+            const isRunning = Math.abs(mario.vx) > 1 && mario.onGround;
+
+            ctx.fillStyle = '#FFB6C1';
+            if (mario.big) {
+                ctx.fillRect(4, 0, 8, 8);
+                ctx.fillRect(2, 8, 12, 24);
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(0, 8, 16, 8);
+                ctx.fillStyle = '#4B0082';
+                ctx.fillRect(0, 16, 16, 4);
+                ctx.fillRect(0, 28, 6, 8);
+                ctx.fillRect(10, 28, 6, 8);
+            } else {
+                ctx.fillRect(4, 0, 8, 8);
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(2, 8, 12, 8);
+                ctx.fillStyle = '#4B0082';
+                ctx.fillRect(2, 16, 12, 4);
+                ctx.fillRect(2, 20, 6, 4);
+                ctx.fillRect(8, 20, 6, 4);
+            }
+
+            ctx.fillStyle = '#000';
+            if (mario.facingRight) {
+                ctx.fillRect(mario.big ? 10 : 10, mario.big ? 2 : 2, 2, 2);
+            } else {
+                ctx.fillRect(mario.big ? 4 : 4, mario.big ? 2 : 2, 2, 2);
+            }
+
+            ctx.fillStyle = '#FFF';
+            if (mario.big) {
+                if (isRunning) {
+                    if (mario.animFrame === 0) { ctx.fillRect(0, 32, 4, 8); ctx.fillRect(12, 28, 4, 12); }
+                    else if (mario.animFrame === 1) { ctx.fillRect(0, 28, 6, 12); ctx.fillRect(10, 32, 6, 8); }
+                    else { ctx.fillRect(0, 30, 5, 10); ctx.fillRect(11, 30, 5, 10); }
+                } else {
+                    ctx.fillRect(0, 28, 6, 8); ctx.fillRect(10, 28, 6, 8);
+                }
+            } else {
+                if (isRunning) {
+                    if (mario.animFrame === 0) { ctx.fillRect(2, 20, 4, 8); ctx.fillRect(10, 16, 4, 12); }
+                    else if (mario.animFrame === 1) { ctx.fillRect(2, 16, 6, 12); ctx.fillRect(8, 20, 6, 8); }
+                    else { ctx.fillRect(2, 18, 5, 10); ctx.fillRect(9, 18, 5, 10); }
+                } else {
+                    ctx.fillRect(2, 20, 6, 4); ctx.fillRect(8, 20, 6, 4);
+                }
+            }
+
+            ctx.restore();
+        }
+
+        function drawEntities() {
+            entities.forEach(e => e.draw());
+        }
+
+        function drawParticles() {
+            particles.forEach(p => {
+                ctx.save();
+                ctx.translate(p.x - cameraX, p.y);
+                ctx.scale(SCALE, SCALE);
+                if (p.type === 'coin') {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.beginPath();
+                    ctx.arc(8, 8, 6, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (p.type === 'brick') {
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(-4, -4, 12, 12);
+                    ctx.fillStyle = '#A0522D';
+                    ctx.fillRect(-4, -4, 12, 3);
+                } else if (p.type === 'score') {
+                    ctx.fillStyle = '#FFF';
+                    ctx.font = '8px Courier';
+                    ctx.fillText(p.text, 0, 0);
+                }
+                ctx.restore();
+            });
+        }
+
+        function drawFlag() {
+            const flagX = levelWidth - 80;
+            if (flagX - cameraX > -50 && flagX - cameraX < WIDTH + 50) {
+                ctx.save();
+                ctx.translate(flagX - cameraX, 64);
+                ctx.scale(SCALE, SCALE);
+                ctx.fillStyle = '#8B4513';
+                ctx.fillRect(0, 0, 4, 320);
+                ctx.fillStyle = '#FF0000';
+                ctx.fillRect(4, 0, 32, 24);
+                ctx.fillStyle = '#FFF';
+                ctx.fillRect(4, 4, 24, 16);
+                ctx.restore();
+            }
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, WIDTH, HEIGHT);
+            drawBackground();
+            drawTiles();
+            drawFlag();
+            drawEntities();
+            drawParticles();
+            drawMario();
+
+            document.getElementById('score').textContent = score.toString().padStart(6, '0');
+            document.getElementById('timer').textContent = timer.toString().padStart(3, '0');
+            document.getElementById('lives').textContent = lives;
+        }
+
+        function loop() {
+            frameCount++;
+            if (gameState === 'play') {
+                updateMario();
+                updateEntities();
+                updateParticles();
+            }
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        document.addEventListener('keydown', e => {
+            if (e.code === 'Enter') {
+                if (gameState === 'start') {
+                    gameState = 'play';
+                    document.getElementById('start-screen').style.display = 'none';
+                    resetLevel();
+                } else if (gameState === 'gameover') {
+                    gameState = 'start';
+                    score = 0;
+                    lives = 3;
+                    document.getElementById('game-over').style.display = 'none';
+                    document.getElementById('start-screen').style.display = 'flex';
+                } else if (gameState === 'win') {
+                    gameState = 'play';
+                    document.getElementById('win-screen').style.display = 'none';
+                    resetLevel();
+                }
+            }
+            if (e.code === 'KeyP' && gameState === 'play') {
+                gameState = 'pause';
+            } else if (e.code === 'KeyP' && gameState === 'pause') {
+                gameState = 'play';
+            }
+        });
+
+        loop();
+    </script>
+</body>
+</html>

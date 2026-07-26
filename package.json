@@ -1,11 +1,12 @@
 {
   "name": "zor",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "private": true,
   "scripts": {
     "build": "bun run --filter zor-code build",
     "dev": "bun run --watch packages/zor-code/src/main.tsx",
-    "test": "bun run --filter zor-code test"
+    "test": "bun run --filter zor-code test",
+    "check": "bun run --filter zor-code typecheck && bun run --filter zor-code test"
   },
   "workspaces": [
     "packages/*"

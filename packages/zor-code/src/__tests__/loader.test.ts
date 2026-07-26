@@ -11,8 +11,8 @@ describe('loadConfig', () => {
   it('falls back to default config when no file found', () => {
     const config = loadConfig('/nonexistent/path/zor.json');
     expect(config.model).toBe('opencode/claude-sonnet-4');
-    expect(config.effort).toBe('high');
-    expect(config.permissions).toBe('confirm');
+    expect(config.effort).toBe('off');
+    expect(config.permissions).toBe('auto');
   });
 
   it('handles invalid JSON gracefully', () => {

@@ -91,7 +91,7 @@ export const taskTool: AgentTool = {
         toolExecution: 'parallel',
       });
 
-      const result = await agent.prompt(t.task);
+      const result = await agent.prompt(t.task) as any;
       const summary = agent.state.messages
         .filter((m: any) => m.role === 'assistant')
         .map((m: any) => typeof m.content === 'string' ? m.content : '')

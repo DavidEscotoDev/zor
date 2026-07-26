@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 vi.mock('fs', () => ({
   readFileSync: vi.fn((path: string) => {
@@ -42,7 +42,7 @@ vi.mock('../agent/subagent', () => ({
 }));
 
 import { buildToolSet } from '../agent/tools';
-import { readFileSync, writeFileSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync } from 'fs';
 
 const mockMcpClient = {
   getTools: vi.fn(() => []),
@@ -138,5 +138,56 @@ describe('validatePath', () => {
     const result = await read.execute('test-id', { filepath: 'src/index.ts' });
     const text = result.content[0].text;
     expect(text).toBe('file content here\nline 2\nline 3');
+  });
+});
+
+describe('tool behavior', () => {
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('Write creates parent directories', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const write = tools.find(t => t.name === 'Write')!;
+    const result = await write.execute('test-id', { filepath: 'new-dir/file.txt', content: 'hello' });
+    expect(mkdirSync).toHaveBeenCalledWith(expect.any(String), { recursive: true });
+    expect(writeFileSync).toHaveBeenCalled();
+    expect(result.content[0].text).toContain('Written');
+  });
+
+  it('Write returns error for path traversal', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const write = tools.find(t => t.name === 'Write')!;
+    const result = await write.execute('test-id', { filepath: '../../../etc/passwd', content: 'evil' });
+    const text = result.content[0].text;
+    expect(text).toMatch(/Error|traversal/i);
+  });
+
+  it('Edit succeeds when oldString found', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const edit = tools.find(t => t.name === 'Edit')!;
+    await edit.execute('test-id', { filepath: 'src/test.ts', oldString: 'file content', newString: 'replaced content' });
+    expect(writeFileSync).toHaveBeenCalledWith(expect.any(String), expect.stringContaining('replaced content'), 'utf8');
+  });
+
+  it('Edit fails when oldString not found', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const edit = tools.find(t => t.name === 'Edit')!;
+    const result = await edit.execute('test-id', { filepath: 'src/test.ts', oldString: 'NOT_IN_FILE', newString: 'replacement' });
+    expect(result.content[0].text).toMatch(/Error|not found/i);
+  });
+
+  it('Glob returns matching files', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const glob = tools.find(t => t.name === 'Glob')!;
+    const result = await glob.execute('test-id', { pattern: 'src/**/*.ts' });
+    expect(result.content[0].text).toContain('src/index.ts');
+  });
+
+  it('Grep returns matches', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const grep = tools.find(t => t.name === 'Grep')!;
+    const result = await grep.execute('test-id', { pattern: 'function' });
+    expect(result.content[0].text).toBe('grep output');
   });
 });

@@ -20,7 +20,7 @@ const PROVIDER_ALIASES: Record<string, string> = {
   sonnet4: 'opencode/claude-sonnet-4',
   flash: 'google/gemini-2.5-flash',
   pro: 'google/gemini-2.5-pro',
-  nemotron: 'nvidia/nvidia/nemotron-3-super-120b-a12b',
+  nemotron: 'nvidia/nemotron-3-super-120b-a12b',
   grok: 'xai/grok-3',
   codestral: 'mistral/codestral-latest',
   mistral: 'mistral/mistral-large-latest',
@@ -57,11 +57,15 @@ export async function resolveModel(config: ZorConfig): Promise<ResolvedModel> {
 
     const key = resolveKey(provider);
     if (!key) throw new Error(`No API key for ${provider.name}. Run: zor-code keys set ${provider.id} <your-key>`);
-    const model = provider.models.find(m => m.id === modelId);
+    // modelId may not have provider prefix, but provider.models have full IDs like "nvidia/nemotron-3-ultra-550b-a55b"
+    const model = provider.models.find(m => m.id === modelId || m.id === `${providerId}/${modelId}`);
     if (!model) {
-      const fuzzy = provider.models.filter(m => m.id.toLowerCase().includes(modelId.toLowerCase()) || modelId.toLowerCase().includes(m.id.toLowerCase()));
+      const fuzzy = provider.models.filter(m => 
+        m.id.toLowerCase().includes(modelId.toLowerCase()) || 
+        modelId.toLowerCase().includes(m.id.replace(`${providerId}/`, '').toLowerCase())
+      );
       if (fuzzy.length > 0) {
-        const suggestions = fuzzy.map(m => `  ${provider.id}/${m.id}`).join('\n');
+        const suggestions = fuzzy.map(m => `  ${m.id}`).join('\n');
         throw new Error(`Model ${modelId} not in ${provider.name}. Did you mean?\n${suggestions}`);
       }
       throw new Error(`Model ${modelId} not found in ${provider.name}`);
@@ -72,7 +76,8 @@ export async function resolveModel(config: ZorConfig): Promise<ResolvedModel> {
   // No provider prefix — match model across all providers
   for (const provider of getAllProviders()) {
     if (provider.api === 'ollama') continue;
-    const model = provider.models.find(m => m.id === modelId);
+    // Model IDs in provider.models already include provider prefix (e.g., "nvidia/nemotron-3-ultra-550b-a55b")
+    const model = provider.models.find(m => m.id === modelId || m.id.endsWith(`/${modelId}`));
     if (model) {
       const key = resolveKey(provider);
       if (!key) throw new Error(`Found ${modelId} in ${provider.name} but no API key. Run: zor-code keys set ${provider.id} <your-key>`);

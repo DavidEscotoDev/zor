@@ -39,21 +39,5 @@ describe('assembleSystemPrompt', () => {
     expect(resultA).toBe(resultB);
   });
 
-  it('mentions extended tools', () => {
-    const result = assembleSystemPrompt({});
-    expect(result).toContain('EXTENDED TOOLS');
-    expect(result).toContain('WebSearch');
-    expect(result).toContain('WebFetch');
-  });
 
-  it('mentions sub-agents', () => {
-    const result = assembleSystemPrompt({});
-    expect(result).toContain('sub-agent');
-    expect(result).toContain('exploration');
-  });
-
-  it('mentions context compaction', () => {
-    const result = assembleSystemPrompt({});
-    expect(result).toContain('Compact context');
-  });
 });

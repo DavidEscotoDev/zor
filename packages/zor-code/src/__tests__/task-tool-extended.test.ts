@@ -7,14 +7,16 @@ vi.mock('@earendil-works/pi-ai', () => ({
 }));
 
 vi.mock('@earendil-works/pi-agent-core', () => ({
-  Agent: vi.fn().mockImplementation(() => ({
-    state: {
-      messages: [
-        { role: 'assistant', content: 'Task completed successfully' },
-      ],
-    },
-    prompt: vi.fn().mockResolvedValue({ stopReason: 'done' }),
-  })),
+  Agent: vi.fn().mockImplementation(function () {
+    return {
+      state: {
+        messages: [
+          { role: 'assistant', content: 'Task completed successfully' },
+        ],
+      },
+      prompt: vi.fn().mockResolvedValue({ stopReason: 'done' }),
+    };
+  }),
 }));
 
 vi.mock('../agent/rag', () => ({
@@ -54,7 +56,7 @@ describe('taskTool extended - parallel execution with RAG context', () => {
   });
 
   afterEach(() => {
-    vi.resetAllMocks();
+    vi.clearAllMocks();
   });
 
   it('should accept single task (backward compatibility)', async () => {
@@ -136,12 +138,14 @@ describe('taskTool extended - parallel execution with RAG context', () => {
 
   it('should mark task as failed when agent returns error', async () => {
     const { Agent } = await import('@earendil-works/pi-agent-core');
-    (Agent as any).mockImplementationOnce(() => ({
-      state: {
-        messages: [{ role: 'assistant', content: 'Error occurred' }],
-      },
-      prompt: vi.fn().mockResolvedValue({ stopReason: 'error' }),
-    }));
+    (Agent as any).mockImplementationOnce(function () {
+      return {
+        state: {
+          messages: [{ role: 'assistant', content: 'Error occurred' }],
+        },
+        prompt: vi.fn().mockResolvedValue({ stopReason: 'error' }),
+      };
+    });
 
     await taskTool.execute('test-id', {
       tasks: [
@@ -154,12 +158,14 @@ describe('taskTool extended - parallel execution with RAG context', () => {
 
   it('should return error indicator for failed tasks', async () => {
     const { Agent } = await import('@earendil-works/pi-agent-core');
-    (Agent as any).mockImplementationOnce(() => ({
-      state: {
-        messages: [{ role: 'assistant', content: 'Error occurred' }],
-      },
-      prompt: vi.fn().mockResolvedValue({ stopReason: 'error' }),
-    }));
+    (Agent as any).mockImplementationOnce(function () {
+      return {
+        state: {
+          messages: [{ role: 'assistant', content: 'Error occurred' }],
+        },
+        prompt: vi.fn().mockResolvedValue({ stopReason: 'error' }),
+      };
+    });
 
     const result = await taskTool.execute('test-id', {
       tasks: [
@@ -172,10 +178,12 @@ describe('taskTool extended - parallel execution with RAG context', () => {
 
   it('should return completed message when no output', async () => {
     const { Agent } = await import('@earendil-works/pi-agent-core');
-    (Agent as any).mockImplementation(() => ({
-      state: { messages: [] },
-      prompt: vi.fn().mockResolvedValue({ stopReason: 'done' }),
-    }));
+    (Agent as any).mockImplementation(function () {
+      return {
+        state: { messages: [] },
+        prompt: vi.fn().mockResolvedValue({ stopReason: 'done' }),
+      };
+    });
 
     const result = await taskTool.execute('test-id', {
       tasks: [{ name: 'explorer', task: 'Explore', id: 'task-1' }],

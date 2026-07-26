@@ -231,7 +231,7 @@ export const PROVIDERS: ProviderConfig[] = [
     ],
   },
 
-  // ── NVIDIA NIM ──
+// ── NVIDIA NIM ──
   {
     id: 'nvidia',
     name: 'NVIDIA NIM',
@@ -239,8 +239,10 @@ export const PROVIDERS: ProviderConfig[] = [
     baseUrl: 'https://integrate.api.nvidia.com/v1',
     envKey: 'NVIDIA_API_KEY',
     models: [
+      { id: 'nvidia/nemotron-3-ultra-550b-a55b', name: 'Nemotron 3 Ultra 550B', contextWindow: 128000, maxTokens: 8192, supportsThinking: true, supportsVision: false, pricing: { input: 0, output: 0 } },
       { id: 'nvidia/nemotron-3-super-120b-a12b', name: 'Nemotron 3 Super 120B', contextWindow: 128000, maxTokens: 32768, supportsThinking: true, supportsVision: false, pricing: { input: 0, output: 0 } },
-      { id: 'meta/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', contextWindow: 128000, maxTokens: 32768, supportsThinking: false, supportsVision: false, pricing: { input: 0.36, output: 0.36 } },
+      { id: 'nvidia/nemotron-3-nano-30b-a3b', name: 'Nemotron 3 Nano 30B (fast)', contextWindow: 128000, maxTokens: 8192, supportsThinking: true, supportsVision: false, pricing: { input: 0, output: 0 } },
+      { id: 'nvidia/llama-3.3-70b-instruct', name: 'Llama 3.3 70B', contextWindow: 128000, maxTokens: 32768, supportsThinking: false, supportsVision: false, pricing: { input: 0.36, output: 0.36 } },
     ],
   },
 

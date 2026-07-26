@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Calculator</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: #1a1a2e;
+    }
+    .calculator {
+      background: #16213e;
+      border-radius: 20px;
+      padding: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+      width: 100%;
+      max-width: 340px;
+    }
+    .display {
+      background: #0f0f23;
+      border-radius: 12px;
+      padding: 24px;
+      margin-bottom: 20px;
+      text-align: right;
+      min-height: 100px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .history {
+      color: #6b7280;
+      font-size: 14px;
+      min-height: 20px;
+      word-break: break-all;
+    }
+    .current {
+      color: #e2e8f0;
+      font-size: 42px;
+      font-weight: 300;
+      font-variant-numeric: tabular-nums;
+      word-break: break-all;
+      line-height: 1.2;
+    }
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+    }
+    .btn {
+      border: none;
+      border-radius: 12px;
+      padding: 20px;
+      font-size: 20px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.1s ease;
+      user-select: none;
+    }
+    .btn:active {
+      transform: scale(0.95);
+    }
+    .btn:focus-visible {
+      outline: 2px solid #3b82f6;
+      outline-offset: 2px;
+    }
+    .btn-number {
+      background: #1e293b;
+      color: #e2e8f0;
+    }
+    .btn-number:hover {
+      background: #334155;
+    }
+    .btn-operator {
+      background: #3b82f6;
+      color: white;
+    }
+    .btn-operator:hover {
+      background: #2563eb;
+    }
+    .btn-operator.active {
+      background: #1d4ed8;
+    }
+    .btn-function {
+      background: #374151;
+      color: #e2e8f0;
+    }
+    .btn-function:hover {
+      background: #4b5563;
+    }
+    .btn-equals {
+      background: #10b981;
+      color: white;
+      grid-column: span 2;
+    }
+    .btn-equals:hover {
+      background: #059669;
+    }
+    .btn-zero {
+      grid-column: span 2;
+    }
+    @media (max-width: 380px) {
+      .calculator {
+        margin: 10px;
+        border-radius: 16px;
+      }
+      .current {
+        font-size: 32px;
+      }
+      .btn {
+        padding: 16px;
+        font-size: 18px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="calculator" role="application" aria-label="Calculator">
+    <div class="display" aria-live="polite">
+      <div class="history" id="history"></div>
+      <div class="current" id="current">0</div>
+    </div>
+    <div class="buttons" role="group" aria-label="Calculator buttons">
+      <button class="btn btn-function" data-action="clear" aria-label="Clear">C</button>
+      <button class="btn btn-function" data-action="backspace" aria-label="Backspace">⌫</button>
+      <button class="btn btn-function" data-action="percent" aria-label="Percent">%</button>
+      <button class="btn btn-operator" data-action="divide" aria-label="Divide">÷</button>
+      
+      <button class="btn btn-number" data-number="7" aria-label="7">7</button>
+      <button class="btn btn-number" data-number="8" aria-label="8">8</button>
+      <button class="btn btn-number" data-number="9" aria-label="9">9</button>
+      <button class="btn btn-operator" data-action="multiply" aria-label="Multiply">×</button>
+      
+      <button class="btn btn-number" data-number="4" aria-label="4">4</button>
+      <button class="btn btn-number" data-number="5" aria-label="5">5</button>
+      <button class="btn btn-number" data-number="6" aria-label="6">6</button>
+      <button class="btn btn-operator" data-action="subtract" aria-label="Subtract">−</button>
+      
+      <button class="btn btn-number" data-number="1" aria-label="1">1</button>
+      <button class="btn btn-number" data-number="2" aria-label="2">2</button>
+      <button class="btn btn-number" data-number="3" aria-label="3">3</button>
+      <button class="btn btn-operator" data-action="add" aria-label="Add">+</button>
+      
+      <button class="btn btn-number btn-zero" data-number="0" aria-label="0">0</button>
+      <button class="btn btn-number" data-number="." aria-label="Decimal">.</button>
+      <button class="btn btn-equals" data-action="equals" aria-label="Equals">=</button>
+    </div>
+  </div>
+
+  <script>
+    (function() {
+      const currentEl = document.getElementById('current');
+      const historyEl = document.getElementById('history');
+      const buttons = document.querySelector('.buttons');
+      
+      let current = '0';
+      let previous = null;
+      let operator = null;
+      let shouldReset = false;
+      let justEvaluated = false;
+
+      function updateDisplay() {
+        currentEl.textContent = formatNumber(current);
+        if (operator && previous !== null) {
+          const opSymbol = getOperatorSymbol(operator);
+          historyEl.textContent = `${formatNumber(previous)} ${opSymbol}`;
+        } else {
+          historyEl.textContent = '';
+        }
+      }
+
+      function formatNumber(num) {
+        if (num === '.') return '0.';
+        if (num.endsWith('.')) return num;
+        const parts = num.split('.');
+        parts[0] = parts[0].replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+        return parts.join('.');
+      }
+
+      function getOperatorSymbol(op) {
+        const symbols = { add: '+', subtract: '−', multiply: '×', divide: '÷' };
+        return symbols[op] || op;
+      }
+
+      function setOperatorActive(op) {
+        document.querySelectorAll('.btn-operator').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.action === op);
+        });
+      }
+
+      function inputNumber(num) {
+        if (shouldReset || justEvaluated) {
+          current = num;
+          shouldReset = false;
+          justEvaluated = false;
+        } else {
+          if (num === '.' && current.includes('.')) return;
+          if (current === '0' && num !== '.') {
+            current = num;
+          } else {
+            current += num;
+          }
+        }
+        updateDisplay();
+      }
+
+      function inputOperator(nextOperator) {
+        if (operator && !shouldReset && !justEvaluated) {
+          calculate();
+        }
+        previous = parseFloat(current.replace(/,/g, ''));
+        operator = nextOperator;
+        shouldReset = true;
+        justEvaluated = false;
+        setOperatorActive(operator);
+        updateDisplay();
+      }
+
+      function calculate() {
+        if (operator === null || previous === null) return;
+        
+        const currentValue = parseFloat(current.replace(/,/g, ''));
+        let result;
+
+        switch (operator) {
+          case 'add': result = previous + currentValue; break;
+          case 'subtract': result = previous - currentValue; break;
+          case 'multiply': result = previous * currentValue; break;
+          case 'divide': 
+            if (currentValue === 0) {
+              current = 'Error';
+              updateDisplay();
+              setTimeout(clearAll, 1500);
+              return;
+            }
+            result = previous / currentValue; 
+            break;
+          default: return;
+        }
+
+        current = String(result);
+        previous = null;
+        operator = null;
+        shouldReset = true;
+        justEvaluated = true;
+        setOperatorActive(null);
+        updateDisplay();
+      }
+
+      function handlePercent() {
+        const value = parseFloat(current.replace(/,/g, ''));
+        current = String(value / 100);
+        updateDisplay();
+      }
+
+      function handleBackspace() {
+        if (justEvaluated || shouldReset) return;
+        if (current.length === 1 || (current.length && current === '-')) {
+          current = '0';
+        } else {
+          current = current.slice(0, -1);
+        }
+        updateDisplay();
+      }
+
+      function clearAll() {
+        current = '0';
+        previous = null;
+        operator = null;
+        shouldReset = false;
+        justEvaluated = false;
+        setOperatorActive(null);
+        updateDisplay();
+      }
+
+      function handleKey(e) {
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        
+        const key = e.key;
+        if (key >= '0' && key <= '9') {
+          inputNumber(key);
+        } else if (key === '.') {
+          inputNumber('.');
+        } else if (key === '+' || key === '-') {
+          inputOperator(key === '+' ? 'add' : 'subtract');
+        } else if (key === '*') {
+          inputOperator('multiply');
+        } else if (key === '/') {
+          e.preventDefault();
+          inputOperator('divide');
+        } else if (key === 'Enter' || key === '=') {
+          e.preventDefault();
+          calculate();
+        } else if (key === 'Escape' || key === 'c' || key === 'C') {
+          clearAll();
+        } else if (key === 'Backspace') {
+          handleBackspace();
+        } else if (key === '%') {
+          handlePercent();
+        }
+      }
+
+      buttons.addEventListener('click', (e) => {
+        const btn = e.target.closest('button');
+        if (!btn) return;
+
+        const action = btn.dataset.action;
+        const number = btn.dataset.number;
+
+        if (number !== undefined) {
+          inputNumber(number);
+        } else if (action) {
+          switch (action) {
+            case 'add': case 'subtract': case 'multiply': case 'divide':
+              inputOperator(action);
+              break;
+            case 'equals':
+              calculate();
+              break;
+            case 'clear':
+              clearAll();
+              break;
+            case 'backspace':
+              handleBackspace();
+              break;
+            case 'percent':
+              handlePercent();
+              break;
+          }
+        }
+      });
+
+      document.addEventListener('keydown', handleKey);
+
+      updateDisplay();
+    })();
+  </script>
+</body>
+</html>

@@ -12,12 +12,6 @@ describe('ZorConfig orchestrator config', () => {
     expect(defaultConfig).toHaveProperty('orchestrator');
     expect(defaultConfig.orchestrator).toEqual({
       plannerModel: 'opencode/gpt-4o-mini',
-      humanApproval: {
-        plan: false,
-        write: false,
-        bash: false,
-        costThreshold: 0,
-      },
     });
   });
 
@@ -26,12 +20,6 @@ describe('ZorConfig orchestrator config', () => {
       ...defaultConfig,
       orchestrator: {
         plannerModel: 'opencode/gpt-4o',
-        humanApproval: {
-          plan: true,
-          write: true,
-          bash: 'dangerous' as const,
-          costThreshold: 100,
-        },
       },
     };
     expect(Value.Check(ZorConfigSchema, config)).toBe(true);

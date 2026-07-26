@@ -77,7 +77,17 @@ export function resolveKey(provider: ProviderConfig): string | null {
   if (provider.api === 'ollama') return 'ollama';
   const envKey = resolveApiKey(provider);
   if (envKey) return envKey;
-  return getAuthToken(provider.id);
+  const authToken = getAuthToken(provider.id);
+  if (authToken) return authToken;
+  return getKey(provider.id);
+}
+
+export function getKeySource(provider: ProviderConfig): 'env' | 'auth' | 'saved' | 'none' {
+  if (provider.api === 'ollama') return 'env';
+  if (resolveApiKey(provider)) return 'env';
+  if (getAuthToken(provider.id)) return 'auth';
+  if (getKey(provider.id)) return 'saved';
+  return 'none';
 }
 
 export function getKeyStatuses(): { provider: string; name: string; hasKey: boolean }[] {

@@ -1,6 +1,6 @@
 {
   "name": "zor-code",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "type": "module",
   "description": "Open-source AI coding agent for the terminal. Multi-provider, local models, MCP support.",
   "files": ["src/", "docs/", "README.md", "CHANGELOG.md"],
@@ -8,27 +8,26 @@
     "zor-code": "src/index.ts"
   },
   "scripts": {
-    "dev": "bun --watch src/main.tsx",
-    "build": "bun build src/main.tsx --outdir dist --target bun",
-    "compile": "bun build --compile src/main.tsx --outfile dist/zor-code.exe",
+    "dev": "bun --watch src/main.ts",
+    "build": "bun build src/main.ts --outdir dist --target bun",
+    "compile": "bun build --compile src/main.ts --outfile dist/zor-code.exe",
     "start": "bun dist/main.js",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "check": "tsc --noEmit && vitest run",
     "prepublishOnly": "bun run build && bun run compile"
   },
   "dependencies": {
     "@earendil-works/pi-agent-core": "^0.79.8",
     "@earendil-works/pi-ai": "^0.79.8",
+    "@earendil-works/pi-tui": "^0.79.10",
     "@sinclair/typebox": "^0.32.0",
     "glob": "^10.3.0",
-    "ink": "^4.4.1",
-    "react": "^18.2.0",
     "tiktoken": "^1.0.22"
   },
   "devDependencies": {
-    "@types/react": "^18.2.0",
     "typescript": "^5.3.0"
   },
   "repository": {
