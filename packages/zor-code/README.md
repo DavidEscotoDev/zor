@@ -45,40 +45,39 @@ bun run --filter zor-code compile
 
 ## Architecture
 
-```
-┌─────────────────────────────────────────────────────────┐
-│                    TUI (pi-tui)                          │
-│  Status bar · model info · token count · spinner        │
-│  Message log · command palette · session picker         │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│                    Agent Core                             │
-│  ┌──────────┐  ┌──────────┐  ┌──────────────────────┐   │
-│  │ System    │  │ Tools    │  │ Slash Commands        │   │
-│  │ Prompt    │  │ Registry │  │ /model /effort /keys  │   │
-│  └──────────┘  └──────────┘  │ /fork /cost /status   │   │
-│                   │          └──────────────────────┘   │
-│        ┌──────────┴──────────┐                           │
-│        ▼                     ▼                           │
-│  ┌──────────┐          ┌──────────┐                      │
-│  │ MCP      │          │ Sub-     │                      │
-│  │ Client   │          │ agents   │                      │
-│  └──────────┘          └──────────┘                      │
-└──────────────────────────────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│                    Persistence                            │
-│  Sessions (JSON) · Keys (encrypted AES-256-GCM)          │
-│  Config (zor.json) · Audit logs                          │
-└────────────────────────┬────────────────────────────────┘
-                         │
-┌────────────────────────▼────────────────────────────────┐
-│                    Security                               │
-│  Permission gate (auto/confirm/deny)                     │
-│  Path validation · protected patterns                    │
-│  Sandbox mode (WSL2/Lima/Docker)                         │
-└──────────────────────────────────────────────────────────┘
+```mermaid
+graph TB
+    subgraph TUI["TUI (pi-tui)"]
+        SB["Status Bar · model · tokens · spinner"]
+        ML["Message Log"]
+        CP["Command Palette"]
+        SP["Session Picker"]
+    end
+
+    subgraph AGENT["Agent Core"]
+        direction TB
+        SPRO["System Prompt"]
+        TR["Tool Registry"]
+        SC["Slash Commands<br/>/model /effort /keys"]
+        MCP["MCP Client"]
+        SA["Sub-Agents"]
+    end
+
+    subgraph PERSIST["Persistence Layer"]
+        SESS["Sessions (JSON)"]
+        KEYS["Keys (AES-256-GCM)"]
+        CFG["Config (zor.json)"]
+    end
+
+    subgraph SEC["Security"]
+        PG["Permission Gate<br/>auto / confirm / deny"]
+        PV["Path Validation"]
+        SAN["Sandbox<br/>WSL2 / Lima / Docker"]
+    end
+
+    TUI --> AGENT
+    AGENT --> PERSIST
+    AGENT --> SEC
 ```
 
 ---
