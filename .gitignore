@@ -2,7 +2,6 @@ node_modules/
 *.wasm
 dist/
 .zor/
-.opencode/
 *.log
 *.err
 .env
