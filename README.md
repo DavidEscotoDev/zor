@@ -1,47 +1,25 @@
 # Zor
 
-Open-source AI coding agent for the terminal.
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
+[![Bun](https://img.shields.io/badge/Bun-1.2-black?style=flat-square&logo=bun)](https://bun.sh)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](https://github.com/zor-ai/zor/blob/main/LICENSE)
+[![CI](https://github.com/zor-ai/zor/actions/workflows/ci.yml/badge.svg)](https://github.com/zor-ai/zor/actions/workflows/ci.yml)
 
-27 LLM providers. Local models via Ollama. MCP support. Sub-agents.
+Open-source AI coding agent for the terminal. 27 LLM providers, local models, MCP tools, sub-agents, encrypted sessions, permission gates.
 
-## Quick Start
-
-```bash
-# Install
+```
 curl -fsSL https://raw.githubusercontent.com/zor-ai/zor/main/install.sh | sh
-
-# Set key
-zor-code keys set opencode <your-api-key>
-
-# Run
+zor-code keys set anthropic sk-ant-xxxxxxxxxxxx
 zor-code
 ```
 
-## Providers
+## Packages
 
-anthropic, openai, google, deepseek, openrouter, groq, mistral, xai, together, perplexity, cohere, cerebras, novita, nvidia, fireworks, deepinfra, minimax, moonshotai, zai, cloudflare, github-copilot, amazon-bedrock, azure-openai, google-vertex, ollama, opencode-go, opencode
+| Package | Description |
+|---------|-------------|
+| [zor-code](packages/zor-code/) | Core AI coding agent — TUI, agent loop, providers, tools, MCP |
 
-## Slash Commands
-
-| Command | Description |
-|---|---|
-| `/model <p/m>` | Switch model |
-| `/use` | Interactive model picker |
-| `/effort <l>` | Set effort (off/minimal/low/medium/high/xhigh) |
-| `/keys list\|set\|remove` | Manage API keys |
-| `/providers` | List providers |
-| `/models` | List models |
-| `/ollama` | Check Ollama |
-| `/fork` | Branch session |
-| `/tree` | Session tree |
-| `/compact` | Force compaction |
-| `/cost` | Token usage |
-| `/status` | Active state |
-| `/clear` | Clear screen |
-| `/help` | Help |
-| `/exit` | Exit |
-
-## Build from Source
+## Build
 
 ```bash
 bun install
