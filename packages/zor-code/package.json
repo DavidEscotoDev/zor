@@ -28,7 +28,7 @@
     "tiktoken": "^1.0.22"
   },
   "devDependencies": {
-    "typescript": "^5.3.0"
+    "typescript": "^7.0.2"
   },
   "repository": {
     "type": "git",
