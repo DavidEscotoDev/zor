@@ -98,8 +98,6 @@ describe('Session Lifecycle E2E', () => {
     const manager = new SessionManager(tmpDir);
     const older = manager.create();
     const newer = manager.create();
-    newer.updatedAt = Date.now() + 1;
-    manager.save(newer);
 
     const latest = manager.getLatest();
     expect(latest).toBeDefined();

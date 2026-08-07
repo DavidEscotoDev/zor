@@ -22,6 +22,7 @@ function generateSessionId(prefix: string = 'session'): string {
 
 export class SessionManager {
   private dir: string;
+  private lastStamp = 0;
 
   constructor(dir: string) {
     this.dir = dir;
@@ -83,7 +84,9 @@ export class SessionManager {
   }
 
   save(session: SessionData): void {
-    session.updatedAt = Date.now();
+    const now = Date.now();
+    session.updatedAt = now > this.lastStamp ? now : this.lastStamp + 1;
+    this.lastStamp = session.updatedAt;
     const file = path.join(this.dir, `${session.id}.jsonl`);
     const tmpFile = file + '.tmp';
     fs.writeFileSync(tmpFile, encrypt(JSON.stringify(session, null, 2)), { mode: 0o600 });
