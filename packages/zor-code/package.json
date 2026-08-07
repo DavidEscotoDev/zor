@@ -20,7 +20,7 @@
     "prepublishOnly": "bun run build && bun run compile"
   },
   "dependencies": {
-    "@earendil-works/pi-agent-core": "^0.79.8",
+    "@earendil-works/pi-agent-core": "^0.83.0",
     "@earendil-works/pi-ai": "^0.79.8",
     "@earendil-works/pi-tui": "^0.79.10",
     "@sinclair/typebox": "^0.32.0",
