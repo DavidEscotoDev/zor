@@ -3,7 +3,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue?style=flat-square&logo=typescript)](https://www.typescriptlang.org)
 [![Bun](https://img.shields.io/badge/Bun-1.2-black?style=flat-square&logo=bun)](https://bun.sh)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
-[![CI](https://github.com/zor-ai/zor/actions/workflows/ci.yml/badge.svg)](https://github.com/zor-ai/zor/actions/workflows/ci.yml)
+[![CI](https://github.com/DavidEscotoDev/zor/actions/workflows/ci.yml/badge.svg)](https://github.com/DavidEscotoDev/zor/actions/workflows/ci.yml)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen?style=flat-square)](CONTRIBUTING.md)
 
 **TL;DR** — Open-source AI coding agent for the terminal. 27 LLM providers, local models, MCP tools, sub-agents, encrypted sessions, permission gates. Works on macOS, Linux, Windows.
@@ -28,10 +28,10 @@ AI coding agents shouldn't lock you into one provider, phone home, or hide how t
 
 ```bash
 # Install (macOS/Linux)
-curl -fsSL https://raw.githubusercontent.com/zor-ai/zor/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/DavidEscotoDev/zor/main/install.sh | sh
 
 # Or Windows (PowerShell)
-irm https://raw.githubusercontent.com/zor-ai/zor/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/DavidEscotoDev/zor/main/install.ps1 | iex
 
 # Set an API key
 zor-code keys set anthropic sk-ant-xxxxxxxxxxxx
@@ -43,7 +43,7 @@ zor-code
 ### Build from Source
 
 ```bash
-git clone https://github.com/zor-ai/zor.git
+git clone https://github.com/DavidEscotoDev/zor.git
 cd zor
 bun install
 bun run build
@@ -196,7 +196,7 @@ Project-level `zor.json` or global `~/.zor/zor.json`:
 
 ```json
 {
-  "$schema": "https://zor-ai.github.io/zor/schema.json",
+  "$schema": "https://davidescotodev.github.io/zor/schema.json",
   "model": "anthropic/claude-sonnet-4-20250514",
   "effort": "high",
   "permissions": "confirm",
