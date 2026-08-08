@@ -1,3 +1,5 @@
+import { getProjectRoot } from '../project';
+
 function loadProjectRules(): string {
   try {
     const { existsSync, readFileSync } = require('fs');
@@ -5,7 +7,8 @@ function loadProjectRules(): string {
     const { join } = require('path');
     const rules: string[] = [];
     const globalPath = join(homedir(), '.zor', 'rules.md');
-    const projectPaths = [join(process.cwd(), '.zor', 'rules.md'), join(process.cwd(), 'ZOR.md'), join(process.cwd(), '.zorrules')];
+    const root = getProjectRoot();
+    const projectPaths = [join(root, '.zor', 'rules.md'), join(root, 'ZOR.md'), join(root, '.zorrules')];
     if (existsSync(globalPath)) rules.push(readFileSync(globalPath, 'utf8'));
     for (const p of projectPaths) {
       if (existsSync(p)) rules.push(readFileSync(p, 'utf8'));
@@ -29,5 +32,9 @@ RULES:
 4. Prefer bash for operations not covered by core tools (git, npm, build commands).
 5. Batch independent tool calls in parallel.
 6. Verify writes by reading back.
+
+## Working directory
+
+${getProjectRoot()} — relative file paths resolve here.
 ${rules}`;
 }
