@@ -53,6 +53,7 @@ Usage:
 Slash commands (inside TUI):
   /model <p>/<m>  Switch model
   /use             Browse all models
+  /project [dir]   Show or change working directory
   /keys            Manage API keys
   /effort <level>  Set thinking effort
   /compact         Force context compaction

@@ -9,6 +9,7 @@ import { countMessagesTokens } from '../utils/tokens';
 import { getThemes } from '../theme/registry';
 import { exportTool } from './export';
 import { skillTool } from './skill';
+import { getProjectRoot, setProjectRoot, saveProjectDir } from '../project';
 
 function tool(t: any): any { return t; }
 
@@ -77,6 +78,26 @@ export const slashCommands: Record<string, AgentTool> = {
           return `  ${mark} ${s.provider.padEnd(12)} ${s.name}`;
         });
         return { content: [{ type: 'text', text: `Providers (✓=key set, ✗=no key):\n${lines.join('\n')}` }], details: { providers: statuses.map(s => s.provider) } };
+      } catch (e: any) { return { content: [{ type: 'text', text: `Error: ${e.message}` }], details: { isError: true } }; }
+    },
+  }),
+  project: tool({
+    name: '/project', label: 'project',
+    description: 'Set working directory: /project <dir> or /project (show current)',
+    parameters: Type.Object({ dir: Type.Optional(Type.String({ description: 'Project folder path' })) }),
+    execute: async (_id, params, _signal, _onUpdate, _ctx) => {
+      try {
+        const dir = (params as Record<string, any>).dir;
+        const { resolve: resolvePath } = await import('path');
+        const { homedir } = await import('os');
+        const fs = await import('fs');
+        if (!dir) return { content: [{ type: 'text', text: `Working directory: ${getProjectRoot()}` }], details: {} };
+        const expanded = dir.startsWith('~/') ? `${homedir()}${dir.slice(1)}` : dir;
+        const resolved = resolvePath(getProjectRoot(), expanded);
+        fs.mkdirSync(resolved, { recursive: true });
+        setProjectRoot(resolved);
+        saveProjectDir(resolved);
+        return { content: [{ type: 'text', text: `Working directory set to ${resolved}` }], details: { projectDir: resolved } };
       } catch (e: any) { return { content: [{ type: 'text', text: `Error: ${e.message}` }], details: { isError: true } }; }
     },
   }),

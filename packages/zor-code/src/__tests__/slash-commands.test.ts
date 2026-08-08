@@ -2,10 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { slashCommands } from '../commands/slash-commands';
 import * as keys from '../llm/keys';
 import * as providers from '../llm/providers';
+import * as project from '../project';
 
 vi.mock('../llm/keys');
 vi.mock('../llm/ollama');
 vi.mock('../llm/resolve');
+vi.mock('../project', () => ({
+  getProjectRoot: vi.fn(() => 'C:/projects/current'),
+  setProjectRoot: vi.fn(),
+  saveProjectDir: vi.fn(),
+}));
 
 const mockCtx = {
   config: { model: 'anthropic/claude-sonnet-4-20250514', effort: 'high' },
@@ -76,5 +82,19 @@ describe('slashCommands', () => {
     const result = await (cmd as any).execute('id', {}, null, null, mockCtx);
     expect(result.content[0].text).toContain('100');
     expect(result.content[0].text).toContain('50');
+  });
+
+  it('/project with no dir shows current root', async () => {
+    const cmd = slashCommands.project;
+    const result = await (cmd as any).execute('id', {}, null, null, mockCtx);
+    expect(result.content[0].text).toContain('C:/projects/current');
+  });
+
+  it('/project with dir sets and saves root', async () => {
+    const cmd = slashCommands.project;
+    const result = await (cmd as any).execute('id', { dir: 'other-proj' }, null, null, mockCtx);
+    expect(result.content[0].text).toContain('other-proj');
+    expect(project.setProjectRoot).toHaveBeenCalledWith(expect.stringMatching(/other-proj$/));
+    expect(project.saveProjectDir).toHaveBeenCalledWith(expect.stringMatching(/other-proj$/));
   });
 });
