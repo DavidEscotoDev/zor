@@ -15,7 +15,7 @@ import { setConfirmationCallback, resolveConfirmation, getPendingConfirmation } 
 import { listAllModels } from '../llm/resolve';
 import { showPicker, showConfirm } from './components/picker';
 import { showCommandPalette, type Command } from './components/command-palette';
-import { resolveSessionDir } from '../project';
+import { resolveSessionDir, getProjectRoot, setProjectRoot, saveProjectDir } from '../project';
 
 // ─── ANSI helpers ───────────────────────────────────────────────────────────
 
@@ -535,6 +535,9 @@ export class TuiApp {
         this.showCommandPalette();
         return true;
 
+      case 'project':
+        return this.handleProject(parts);
+
       case 'keys':
         return this.handleKeys(parts);
 
@@ -688,6 +691,28 @@ export class TuiApp {
       default:
         return false; // pass unrecognized slash commands to agent
     }
+  }
+
+  private handleProject(parts: string[]): boolean {
+    const { resolve: resolvePath } = require('path');
+    const { homedir } = require('os');
+    const fs = require('fs');
+    const dir = parts.slice(1).join(' ');
+    if (!dir) {
+      this.addSystem(`Working directory: ${getProjectRoot()}`);
+      return true;
+    }
+    try {
+      const expanded = dir.startsWith('~/') ? `${homedir()}${dir.slice(1)}` : dir;
+      const resolved = resolvePath(getProjectRoot(), expanded);
+      fs.mkdirSync(resolved, { recursive: true });
+      setProjectRoot(resolved);
+      saveProjectDir(resolved);
+      this.addSystem(`Working directory set to ${c.primary(resolved)}`);
+    } catch (e: any) {
+      this.addSystem(`Error: ${e.message}`);
+    }
+    return true;
   }
 
   private handleKeys(parts: string[]): boolean {
