@@ -71,8 +71,15 @@ describe('project', () => {
       const prompt = vi.fn(async (d: string) => '/tmp/picked' || d);
       const r = await resolveProjectDir({ prompt });
       expect(r.first).toBe(true);
-      expect(r.dir).toBe('/tmp/picked');
-      expect(loadProjectDir()).toBe('/tmp/picked');
+      expect(r.dir).toBe(path.resolve('/tmp/picked'));
+      expect(loadProjectDir()).toBe(path.resolve('/tmp/picked'));
+    });
+
+    it('resolves a relative prompt choice to an absolute path', async () => {
+      const prompt = vi.fn(async () => './myproj');
+      const r = await resolveProjectDir({ prompt });
+      expect(path.isAbsolute(r.dir)).toBe(true);
+      expect(r.dir).toBe(path.resolve('./myproj'));
     });
 
     it('falls back to cwd without prompting when no prompt fn', async () => {

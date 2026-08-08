@@ -1,6 +1,6 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'fs';
 import { homedir } from 'os';
-import { join, isAbsolute } from 'path';
+import { join, isAbsolute, resolve as pathResolve } from 'path';
 
 const CONFIG_DIR = join(homedir(), '.zor');
 const LAST_PROJECT_FILE = join(CONFIG_DIR, 'last-project.json');
@@ -41,7 +41,7 @@ export async function resolveProjectDir(opts: { prompt?: (defaultDir: string) =>
   const fallback = process.cwd();
   if (!opts.prompt) return { dir: fallback, first: false };
 
-  const dir = ((await opts.prompt(fallback)).trim() || fallback);
+  const dir = pathResolve(((await opts.prompt(fallback)).trim() || fallback));
   try {
     if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
   } catch { /* caller handles unwritable */ }

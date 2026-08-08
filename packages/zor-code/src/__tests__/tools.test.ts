@@ -43,6 +43,7 @@ vi.mock('../agent/subagent', () => ({
 
 import { buildToolSet } from '../agent/tools';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { execSync } from 'child_process';
 import { setProjectRoot } from '../project';
 
 const mockMcpClient = {
@@ -165,6 +166,13 @@ describe('tools resolve against project root', () => {
     const read = tools.find(t => t.name === 'Read')!;
     const result = await read.execute('id', { filepath: '../pwned/secret.txt' });
     expect(result.content[0].text).toMatch(/Error|traversal/i);
+  });
+
+  it('Bash runs in the project root as cwd', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const bash = tools.find(t => t.name === 'Bash')!;
+    await bash.execute('test-id', { command: 'pwd' });
+    expect(execSync).toHaveBeenCalledWith('pwd', expect.objectContaining({ cwd: '/project-root' }));
   });
 });
 
