@@ -168,6 +168,15 @@ describe('tools resolve against project root', () => {
     expect(result.content[0].text).toMatch(/Error|traversal/i);
   });
 
+  it('Write allows in-root files even when path case differs (Windows)', async () => {
+    if (process.platform !== 'win32') return;
+    setProjectRoot('C:/Users/example/Desktop/Zor');
+    const tools = buildToolSet({}, mockMcpClient);
+    const write = tools.find(t => t.name === 'Write')!;
+    const result = await write.execute('test-id', { filepath: 'c:/users/EXAMPLE/desktop/zor/app.txt', content: 'x' });
+    expect(result.content[0].text).not.toMatch(/Error|traversal/i);
+  });
+
   it('Bash runs in the project root as cwd', async () => {
     const tools = buildToolSet({}, mockMcpClient);
     const bash = tools.find(t => t.name === 'Bash')!;

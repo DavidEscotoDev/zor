@@ -16,7 +16,9 @@ function result(text: string, details?: any): AgentToolResult<any> {
 function validatePath(filepath: string, projectRoot?: string): string {
   const root = path.resolve(projectRoot || getProjectRoot());
   const resolved = path.resolve(root, filepath);
-  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
+  const rel = path.relative(root, resolved);
+  const inside = rel === '' || (rel !== '..' && !rel.startsWith('..' + path.sep) && !path.isAbsolute(rel));
+  if (!inside) {
     throw new Error(`Path traversal blocked: "${filepath}" resolves outside project root`);
   }
   return resolved;
