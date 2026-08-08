@@ -6,8 +6,20 @@ import { loadLastSession, saveLastSession } from './llm/session-state';
 import { configureLogger } from './utils/logger';
 import { SessionManager, SessionData } from './session/manager';
 import { createZorAgent } from './agent/create';
+import { createInterface } from 'readline';
 import { TuiApp } from './tui/app';
 import { setSandboxConfig } from './agent/sandbox';
+import { resolveProjectDir, setProjectRoot } from './project';
+
+function promptProjectDir(defaultDir: string): Promise<string> {
+  const rl = createInterface({ input: process.stdin, output: process.stdout });
+  return new Promise((resolve) => {
+    rl.question(`Working folder [${defaultDir}]: `, (ans) => {
+      rl.close();
+      resolve(ans.trim() || defaultDir);
+    });
+  });
+}
 
 const IS_PIPED = !process.stdin.isTTY;
 const IS_RPC = process.argv.includes('--rpc');
@@ -68,6 +80,9 @@ if (IS_PIPED) {
     if (!input) process.exit(0);
     const config = loadConfig();
 
+    const { dir: projectDir } = await resolveProjectDir(); // no prompt in piped mode
+    setProjectRoot(projectDir);
+
     const cliArg = process.argv[2];
     if (cliArg && cliArg.includes('/')) config.model = cliArg;
     else {
@@ -123,11 +138,17 @@ if (IS_PIPED) {
 
 // ─── Interactive mode (pi-tui) ────────────────────────────────────────────
 else {
-  bootstrapInteractive();
+  bootstrapInteractive().catch((e: any) => {
+    console.error('TUI error:', e?.message);
+    process.exit(1);
+  });
 }
 
-function bootstrapInteractive() {
+async function bootstrapInteractive() {
   const config = loadConfig();
+
+  const { dir: projectDir } = await resolveProjectDir({ prompt: promptProjectDir });
+  setProjectRoot(projectDir);
 
   configureLogger({
     level: config.logging?.level,
