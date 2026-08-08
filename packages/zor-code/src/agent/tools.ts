@@ -7,13 +7,14 @@ import { ToolSearch } from './tools/search';
 import { webFetchTool } from './tools/webfetch';
 import { taskTool } from './subagent';
 import { checkPathAccess, checkHostAccess } from './sandbox';
+import { getProjectRoot } from '../project';
 
 function result(text: string, details?: any): AgentToolResult<any> {
   return { content: [{ type: 'text' as const, text }], details: details || {} };
 }
 
 function validatePath(filepath: string, projectRoot?: string): string {
-  const root = projectRoot || process.cwd();
+  const root = projectRoot || getProjectRoot();
   const resolved = path.resolve(root, filepath);
   if (!resolved.startsWith(path.resolve(root))) {
     throw new Error(`Path traversal blocked: "${filepath}" resolves outside project root`);
@@ -205,7 +206,7 @@ export const coreTools: AgentTool[] = [
         const access = checkPathAccess(pattern);
         if (!access.allowed) return result(`Error: ${access.reason}`, { isError: true });
         const { globSync } = await import('glob');
-        const files = globSync(pattern, { nodir: true, cwd: process.cwd(), absolute: false }).slice(0, 200);
+        const files = globSync(pattern, { nodir: true, cwd: getProjectRoot(), absolute: false }).slice(0, 200);
         return result(files.length > 0 ? files.join('\n') : 'No files found');
       } catch (e: any) {
         return result(`Glob error: ${e.message}`, { isError: true });
@@ -227,7 +228,7 @@ export const coreTools: AgentTool[] = [
         if (!access.allowed) return result(`Error: ${access.reason}`, { isError: true });
         const args = ['--line-number', '--with-filename', pattern];
         if (include) args.push('--include', include);
-        const proc = spawnSync('rg', [...args, '.'], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+        const proc = spawnSync('rg', [...args, '.'], { encoding: 'utf8', maxBuffer: 1024 * 1024, cwd: getProjectRoot() });
         if (proc.error) {
           if (process.platform === 'win32') {
             try {

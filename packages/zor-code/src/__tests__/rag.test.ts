@@ -1,6 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
 import { fetchRelevantFiles, readFileContent } from '../agent/rag';
 
+vi.mock('../project', () => ({ getProjectRoot: () => '/proj/x' }));
+
 vi.mock('glob', () => ({
   globSync: vi.fn((pattern) => {
     if (pattern.includes('auth')) return ['src/auth.ts', 'src/auth.test.ts'];
@@ -40,6 +42,13 @@ describe('fetchRelevantFiles', () => {
     const config = { model: 'opencode/claude-sonnet-4' } as any;
     const files = await fetchRelevantFiles('xyzxyzxyz', config);
     expect(files).toEqual([]);
+  });
+
+  it('uses the project root as glob cwd', async () => {
+    const { globSync } = await import('glob');
+    const config = { model: 'opencode/claude-sonnet-4' } as any;
+    await fetchRelevantFiles('auth login', config);
+    expect(globSync).toHaveBeenCalledWith(expect.any(String), expect.objectContaining({ cwd: '/proj/x' }));
   });
 });
 

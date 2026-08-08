@@ -43,6 +43,7 @@ vi.mock('../agent/subagent', () => ({
 
 import { buildToolSet } from '../agent/tools';
 import { readFileSync, writeFileSync, mkdirSync } from 'fs';
+import { setProjectRoot } from '../project';
 
 const mockMcpClient = {
   getTools: vi.fn(() => []),
@@ -138,6 +139,32 @@ describe('validatePath', () => {
     const result = await read.execute('test-id', { filepath: 'src/index.ts' });
     const text = result.content[0].text;
     expect(text).toBe('file content here\nline 2\nline 3');
+  });
+});
+
+describe('tools resolve against project root', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setProjectRoot('/project-root');
+  });
+
+  afterEach(() => {
+    setProjectRoot('');
+  });
+
+  it('Write resolves the path under the project root', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const write = tools.find(t => t.name === 'Write')!;
+    await write.execute('test-id', { filepath: 'new-dir/file.txt', content: 'hello' });
+    const writtenPath = (writeFileSync as any).mock.calls[0][0];
+    expect(String(writtenPath)).toContain('project-root');
+  });
+
+  it('Read blocks traversal outside the project root', async () => {
+    const tools = buildToolSet({}, mockMcpClient);
+    const read = tools.find(t => t.name === 'Read')!;
+    const result = await read.execute('id', { filepath: '../pwned/secret.txt' });
+    expect(result.content[0].text).toMatch(/Error|traversal/i);
   });
 });
 
