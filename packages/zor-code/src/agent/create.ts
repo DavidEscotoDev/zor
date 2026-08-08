@@ -11,6 +11,7 @@ import { SessionManager, SessionData } from '../session/manager';
 import { logger } from '../utils/logger';
 import type { ZorConfig } from '../config';
 import { resolveModel } from '../llm/resolve';
+import { resolveSessionDir } from '../project';
 
 function createModel(providerId: string, modelId: string): Model<any> {
   const knownProviders: string[] = ['anthropic', 'openai', 'google', 'deepseek', 'groq', 'mistral', 'xai', 'together', 'fireworks', 'cerebras', 'nvidia', 'minimax', 'openrouter', 'moonshotai', 'huggingface', 'zai', 'cloudflare', 'github-copilot', 'amazon-bedrock', 'azure-openai', 'google-vertex', 'opencode', 'opencode-go'];
@@ -29,7 +30,7 @@ function createModel(providerId: string, modelId: string): Model<any> {
 
 export async function createZorAgent(config: ZorConfig, existingSession?: SessionData) {
   const mcpClient = new MCPClient();
-  const sessionManager = new SessionManager(config.session.dir);
+  const sessionManager = new SessionManager(resolveSessionDir(config.session.dir));
   const session = existingSession || sessionManager.create();
   sessionManager.prune(1000);
   const mcpErrors: string[] = [];

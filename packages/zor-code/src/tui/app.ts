@@ -15,6 +15,7 @@ import { setConfirmationCallback, resolveConfirmation, getPendingConfirmation } 
 import { listAllModels } from '../llm/resolve';
 import { showPicker, showConfirm } from './components/picker';
 import { showCommandPalette, type Command } from './components/command-palette';
+import { resolveSessionDir } from '../project';
 
 // ─── ANSI helpers ───────────────────────────────────────────────────────────
 
@@ -609,7 +610,7 @@ export class TuiApp {
 
       case 'resume': {
         // Session picker
-        const sm = new SessionManager(this.config.session.dir);
+        const sm = new SessionManager(resolveSessionDir(this.config.session.dir));
         const sessions = sm.list().slice(0, 100);
         if (sessions.length === 0) {
           this.addSystem('No previous sessions found.');

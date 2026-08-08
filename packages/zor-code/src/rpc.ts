@@ -2,6 +2,7 @@ import { createZorAgent } from './agent/create';
 import { loadConfig } from './config';
 import { SessionManager, SessionData } from './session/manager';
 import { logger } from './utils/logger';
+import { resolveSessionDir } from './project';
 
 interface JsonRpcRequest {
   jsonrpc: '2.0';
@@ -30,7 +31,7 @@ let session: SessionData | undefined;
 let sessionManager: SessionManager;
 
 async function initializeAgent(config: any, existingSession?: SessionData) {
-  const mgr = new SessionManager(config.session.dir);
+  const mgr = new SessionManager(resolveSessionDir(config.session.dir));
   const sess = existingSession || mgr.create();
   mgr.prune(1000);
   sessionManager = mgr;

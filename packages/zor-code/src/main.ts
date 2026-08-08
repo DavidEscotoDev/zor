@@ -9,7 +9,7 @@ import { createZorAgent } from './agent/create';
 import { createInterface } from 'readline';
 import { TuiApp } from './tui/app';
 import { setSandboxConfig } from './agent/sandbox';
-import { resolveProjectDir, setProjectRoot } from './project';
+import { resolveProjectDir, setProjectRoot, resolveSessionDir } from './project';
 
 function promptProjectDir(defaultDir: string): Promise<string> {
   const rl = createInterface({ input: process.stdin, output: process.stdout });
@@ -165,7 +165,7 @@ async function bootstrapInteractive() {
   const resumeTarget = resumeIdx !== -1 ? args[resumeIdx + 1] : undefined;
 
   // Session resume/continue
-  const sessionManager = new SessionManager(config.session.dir);
+  const sessionManager = new SessionManager(resolveSessionDir(config.session.dir));
   let existingSession: SessionData | undefined;
 
   if (continueFlag) {
