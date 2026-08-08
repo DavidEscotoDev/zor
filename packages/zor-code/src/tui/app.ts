@@ -93,7 +93,6 @@ export class TuiApp {
   private statusLine = new Text('', 1, 0);
   private spinnerFrames = ['⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏'];
   private spinnerIdx = 0;
-  private commandPaletteOpen = false;
 
   editor!: Editor;
   private agentRef: AgentHandle | null = null;
@@ -126,12 +125,6 @@ export class TuiApp {
     this.editor.borderColor = c.primary;
     this.editor.onSubmit = (text: string) => {
       if (text.trim()) this.handleSubmit(text.trim());
-    };
-    this.editor.onChange = (text: string) => {
-      if (text === '/' && !this.commandPaletteOpen) {
-        this.commandPaletteOpen = true;
-        this.showCommandPalette();
-      }
     };
     this.ui.addChild(this.editor);
 
@@ -768,7 +761,6 @@ export class TuiApp {
         this.ui.requestRender();
       },
       () => {
-        this.commandPaletteOpen = false;
         this.ui.setFocus(this.editor);
         this.ui.requestRender();
       }
