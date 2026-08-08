@@ -434,6 +434,7 @@ git commit -m "feat: resolve file tools against project root"
 **Files:**
 - Modify: `packages/zor-code/src/agent/create.ts`
 - Modify: `packages/zor-code/src/tui/app.ts`
+- Modify: `packages/zor-code/src/rpc.ts`
 - Modify: `packages/zor-code/src/main.ts` (the resume `SessionManager` already uses `config.session.dir`)
 - Test: `packages/zor-code/src/__tests__/project.test.ts` (add `resolveSessionDir` usage assertion)
 
@@ -483,15 +484,29 @@ const sm = new SessionManager(resolveSessionDir(this.config.session.dir));
 ```
 and add the import `import { resolveSessionDir } from '../project';`.
 
-- [ ] **Step 4: Verify**
+- [ ] **Step 4: Update rpc.ts**
+
+In `src/rpc.ts`, `initializeAgent`, replace:
+
+```ts
+const mgr = new SessionManager(config.session.dir);
+```
+with:
+
+```ts
+const mgr = new SessionManager(resolveSessionDir(config.session.dir));
+```
+and add the import `import { resolveSessionDir } from './project';`.
+
+- [ ] **Step 5: Verify**
 
 Run: `bun run typecheck` and `bun run test`.
 Expected: PASS. Sessions still resolve relative to cwd when no project root is set (default preserved).
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add src/agent/create.ts src/tui/app.ts src/__tests__/project.test.ts
+git add src/agent/create.ts src/tui/app.ts src/rpc.ts src/__tests__/project.test.ts
 git commit -m "feat: store sessions under the project root"
 ```
 
