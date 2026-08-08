@@ -7,15 +7,16 @@ import { ToolSearch } from './tools/search';
 import { webFetchTool } from './tools/webfetch';
 import { taskTool } from './subagent';
 import { checkPathAccess, checkHostAccess } from './sandbox';
+import { getProjectRoot } from '../project';
 
 function result(text: string, details?: any): AgentToolResult<any> {
   return { content: [{ type: 'text' as const, text }], details: details || {} };
 }
 
 function validatePath(filepath: string, projectRoot?: string): string {
-  const root = projectRoot || process.cwd();
+  const root = path.resolve(projectRoot || getProjectRoot());
   const resolved = path.resolve(root, filepath);
-  if (!resolved.startsWith(path.resolve(root))) {
+  if (resolved !== root && !resolved.startsWith(root + path.sep)) {
     throw new Error(`Path traversal blocked: "${filepath}" resolves outside project root`);
   }
   return resolved;
@@ -85,9 +86,9 @@ export const coreTools: AgentTool[] = [
             let proc;
             
             if (process.platform === 'win32') {
-              proc = spawn('cmd', ['/d', '/s', '/c', command], { timeout: 60000 });
+              proc = spawn('cmd', ['/d', '/s', '/c', command], { timeout: 60000, cwd: getProjectRoot() });
             } else {
-              proc = spawn('sh', ['-c', command], { timeout: 60000 });
+              proc = spawn('sh', ['-c', command], { timeout: 60000, cwd: getProjectRoot() });
             }
             
             proc.stdout.on('data', (data: Buffer) => {
@@ -112,9 +113,9 @@ export const coreTools: AgentTool[] = [
         // Non-streaming fallback
         let output: string;
         if (process.platform === 'win32') {
-          output = execSync(command, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 60000, shell: 'cmd.exe' });
+          output = execSync(command, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 60000, shell: 'cmd.exe', cwd: getProjectRoot() });
         } else {
-          output = execSync(command, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 60000 });
+          output = execSync(command, { encoding: 'utf8', maxBuffer: 10 * 1024 * 1024, timeout: 60000, cwd: getProjectRoot() });
         }
         return result(output || 'Command completed');
       } catch (e: any) {
@@ -205,7 +206,7 @@ export const coreTools: AgentTool[] = [
         const access = checkPathAccess(pattern);
         if (!access.allowed) return result(`Error: ${access.reason}`, { isError: true });
         const { globSync } = await import('glob');
-        const files = globSync(pattern, { nodir: true, cwd: process.cwd(), absolute: false }).slice(0, 200);
+        const files = globSync(pattern, { nodir: true, cwd: getProjectRoot(), absolute: false }).slice(0, 200);
         return result(files.length > 0 ? files.join('\n') : 'No files found');
       } catch (e: any) {
         return result(`Glob error: ${e.message}`, { isError: true });
@@ -227,7 +228,7 @@ export const coreTools: AgentTool[] = [
         if (!access.allowed) return result(`Error: ${access.reason}`, { isError: true });
         const args = ['--line-number', '--with-filename', pattern];
         if (include) args.push('--include', include);
-        const proc = spawnSync('rg', [...args, '.'], { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+        const proc = spawnSync('rg', [...args, '.'], { encoding: 'utf8', maxBuffer: 1024 * 1024, cwd: getProjectRoot() });
         if (proc.error) {
           if (process.platform === 'win32') {
             try {
@@ -236,7 +237,7 @@ export const coreTools: AgentTool[] = [
                 const ext = include.replace('*.', '');
                 psArgs[1] = `Select-String -Path *.${ext} -Pattern '${pattern.replace(/'/g, "''")}' -Recurse | Select-Object -First 100 | ForEach-Object { $_.Filename + ':' + $_.LineNumber + ':' + $_.Line }`;
               }
-              const psProc = spawnSync('powershell', psArgs, { encoding: 'utf8', maxBuffer: 1024 * 1024 });
+              const psProc = spawnSync('powershell', psArgs, { encoding: 'utf8', maxBuffer: 1024 * 1024, cwd: getProjectRoot() });
               if (psProc.error) {
                 return result('Grep requires ripgrep installed: https://github.com/BurntSushi/ripgrep');
               }

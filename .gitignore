@@ -6,3 +6,4 @@ dist/
 *.err
 .env
 *.local
+.worktrees/

@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { assembleSystemPrompt } from '../agent/system-prompt';
+import { setProjectRoot } from '../project';
 
 describe('assembleSystemPrompt', () => {
   it('returns string', () => {
@@ -39,5 +40,11 @@ describe('assembleSystemPrompt', () => {
     expect(resultA).toBe(resultB);
   });
 
-
+  it('includes the working directory', () => {
+    setProjectRoot('/x/proj/calc');
+    const result = assembleSystemPrompt({});
+    expect(result).toContain('/x/proj/calc');
+    expect(result).toContain('Working directory');
+    setProjectRoot('');
+  });
 });
