@@ -129,4 +129,4 @@ function expandPath(p: string): string {
 
 export { loadConfig } from './config/loader';
 
-export const VERSION = '0.6.2';
+export const VERSION = '0.6.3';
