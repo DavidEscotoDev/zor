@@ -103,6 +103,7 @@ export class TuiApp {
   private gitBranch = '';
   private visibleCount = 200; // /more increases this
   private messageCount = 0;   // track for token updates
+  private toolCallBytes = new Map<string, number>(); // tool-call id -> streamed arg bytes
 
   constructor(config: ZorConfig, private existingSession?: SessionData) {
     this.config = config;
@@ -275,14 +276,44 @@ export class TuiApp {
 
   // ─── Event handling ─────────────────────────────────────────────────────
 
-  private handleAgentEvent(event: any) {
+private handleAgentEvent(event: any) {
     switch (event.type) {
+      case 'turn_start':
+        this.addPendingStub();
+        break;
+
       case 'message_update':
         if (event.assistantMessageEvent?.type === 'text_delta') {
           const delta = event.assistantMessageEvent.delta;
+          if (this.replacePending('assistant', delta)) break;
           const last = this.messages[this.messages.length - 1];
           if (last?.role === 'assistant') last.content += delta;
           else this.messages.push({ role: 'assistant', content: delta });
+          this.chatDirty = true;
+        }
+        // ponytail: single streaming gauge per tool call; per-call routes if parallelism confuses the last-message update
+        else if (event.assistantMessageEvent?.type === 'toolcall_start' || event.assistantMessageEvent?.type === 'toolcall_delta') {
+          const ev = event.assistantMessageEvent;
+          const block: any = ev.partial?.content?.[ev.contentIndex] || {};
+          const key = block.id || `toolcall-${ev.contentIndex}`;
+          const bytes = (this.toolCallBytes.get(key) || 0) + (ev.delta?.length || 0);
+          this.toolCallBytes.set(key, bytes);
+          const kb = (bytes / 1024).toFixed(1);
+          const label = `[${block.name || 'tool'}] generating… ${kb}KB`;
+          if (!this.replacePending('tool', label)) {
+            const last = this.messages[this.messages.length - 1];
+            if (last?.role === 'tool' && last.content.includes(' generating…')) last.content = label;
+            else this.messages.push({ role: 'tool', content: label });
+          }
+          this.chatDirty = true;
+        }
+        // thinking is the long silent gap: stream it live instead of hiding it
+        else if (event.assistantMessageEvent?.type === 'thinking_delta') {
+          const delta = event.assistantMessageEvent.delta;
+          if (this.replacePending('thinking', delta)) break;
+          const last = this.messages[this.messages.length - 1];
+          if (last?.role === 'thinking') last.content += delta;
+          else this.messages.push({ role: 'thinking', content: delta });
           this.chatDirty = true;
         }
         break;
@@ -295,7 +326,11 @@ export class TuiApp {
         else if (args.pattern) label += ` ${args.pattern}`;
         else if (args.path) label += ` ${args.path}`;
         else label += ` ${Object.keys(args).join(', ')}`;
-        this.messages.push({ role: 'tool', content: label });
+        if (!this.replacePending('tool', label)) {
+          const last = this.messages[this.messages.length - 1];
+          if (last?.role === 'tool' && last.content.includes(' generating…')) last.content = label;
+          else this.messages.push({ role: 'tool', content: label });
+        }
         this.chatDirty = true;
         break;
       }
@@ -396,6 +431,26 @@ export class TuiApp {
     this.ui.requestRender();
   }
 
+  // Turn-start marker so the user sees immediate activity instead of a frozen screen.
+  // Replaced by the first real streamed chunk (text, thinking, or tool call).
+  private addPendingStub() {
+    const last = this.messages[this.messages.length - 1];
+    if (last?.role === 'pending') return;
+    this.messages.push({ role: 'pending', content: `${c.dim('…')}` });
+    this.chatDirty = true;
+  }
+
+  // Convert the trailing pending stub into a real message of the given role/content.
+  // Returns true if the stub was consumed.
+  private replacePending(role: string, content: string): boolean {
+    const last = this.messages[this.messages.length - 1];
+    if (last?.role !== 'pending') return false;
+    last.role = role as any;
+    last.content = content;
+    this.chatDirty = true;
+    return true;
+  }
+
   private ensureChatRendered(w: number) {
     if (!this.chatDirty) return;
     this.chatDirty = false;
@@ -455,6 +510,18 @@ export class TuiApp {
         this.chatBox.addChild(
           new Text(`${c.tool('■')} ${c.tool(msg.content.slice(0, maxW))}`, 1, 0)
         );
+        break;
+
+      case 'thinking':
+        this.chatBox.addChild(new Text('', 0, 0));
+        for (const line of msg.content.split('\n')) {
+          this.chatBox.addChild(new Text(`${c.dim('▱')} ${c.dim(line.slice(0, maxW))}`, 1, 0));
+        }
+        break;
+
+      case 'pending':
+        this.chatBox.addChild(new Text('', 0, 0));
+        this.chatBox.addChild(new Text(`${c.dim(msg.content.slice(0, maxW))}`, 1, 0));
         break;
 
       case 'system':
