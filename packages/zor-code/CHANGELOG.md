@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.6.5 — 2026-08-08
+
+### Fixed
+- Live activity feedback in TUI: pending marker on turn start, streamed thinking deltas, and live byte count while tool-call arguments are generated — no more frozen screen during long turns.
+
 ## 0.4.0 — 2026-07-09
 
 ### Added
